@@ -69,28 +69,39 @@ char={
 	x=0,
 	y=0,
 	speed=1,
+	anim={}
+}
+
+char_animation={
+	a_idle={128,129},
+	a_run={144,145,146,147}
 }
 
 function char.init()
- char.spritefn=animator.updatespritefn({128,129})
+ char.spritefn=animator.updatespritefn()
+	char.anim=char_animation.a_idle
 end
 
 function char.draw()
-	spritenr = char.spritefn()
-	printh(spritenr)
+	spritenr = char.spritefn(char.anim)
 	spr(spritenr, char.x, char.y)		
 end
 
 function char.update()
+	char.anim=char_animation.a_idle
 	if btn(⬆️) then
 		char.y -= char.speed
+		char.anim=char_animation.a_run
 	elseif btn(⬇️) then
 		char.y += char.speed
+		char.anim=char_animation.a_run
 	end
 	if btn(➡️) then
 		char.x += char.speed
+		char.anim=char_animation.a_run
 	elseif btn(⬅️) then
 	 char.x -= char.speed
+		char.anim=char_animation.a_run
 	end 
 end
 -->8
@@ -105,10 +116,11 @@ animator={
 }
 
 function animator.updatespritefn(sarr)
-	cntmax=#sarr
+	cntmax=1
  cnt=1
  update_time=0
- function fn()
+ function fn(sarr)
+ 	cntmax=#sarr
  	if utils.mstime > update_time then
 			cnt+=1
 			if cnt > cntmax then
