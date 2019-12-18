@@ -59,14 +59,27 @@ end -- fn
 function _draw()
 	cls ()
 	char.draw()
+	rectfill(box.x, box.y, box.x+box.w, box.y+box.h, 1)
+	print(collide(box,char),0,0,7)
+
 end -- fn
 ------------------------------
 
 -->8
 -- char tab
+box={
+	x=60,
+	y=60,
+	w=40,
+	h=40;
+}
+
+
 char={
 	x=0,
 	y=0,
+	w=10,
+	h=10,
 	speed=1,
 	anim=nil
 }
@@ -83,7 +96,8 @@ function char.init()
 end
 
 function char.draw()
-	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)		
+	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)	
+	rect(char.x, char.y, char.x+char.w, char.y+char.h, 1)	
 end
 
 function char.update()
@@ -156,6 +170,11 @@ function myannimator:update()
 		self.i += 1
 	end
 	self.frames = (self.frames+1) % self.everyxframe
+end
+
+function collide(o1,o2) 
+	return o1.x < o2.x + o2.w and o2.x < o1.x + o1.w 
+        and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
 end
 
 __gfx__
