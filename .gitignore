@@ -39,3 +39,7 @@ luac.out
 *.x86_64
 *.hex
 
+.history
+config.txt
+log.txt
+sdl_controllers.txt

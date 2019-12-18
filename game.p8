@@ -49,7 +49,7 @@ end
 -------------------------------
 function _update60()
 	utils.update()
- char.update()
+	char.update()
 end -- fn
 
 
@@ -57,9 +57,8 @@ end -- fn
 --draw tab
 -------------------------------
 function _draw()
- cls ()
- 
- char.draw()
+	cls ()
+	char.draw()
 end -- fn
 ------------------------------
 
@@ -69,7 +68,7 @@ char={
 	x=0,
 	y=0,
 	speed=1,
-	anim={}
+	anim=nil
 }
 
 char_animation={
@@ -78,35 +77,36 @@ char_animation={
 }
 
 function char.init()
- char.anim=char_animation.a_idle
+	char.anim = myannimator:new()
+ 	char.anim:setsprite(char_animation.a_idle)
 	char.direction = utils.dir_r
 end
 
 function char.draw()
-	spritenr = animator.getsprite(char.anim)
-	spr(spritenr, char.x, char.y,1, 1, char.direction==utils.dir_l)		
+	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)		
 end
 
 function char.update()
-	char.anim=char_animation.a_idle
+	char.anim:setsprite(char_animation.a_idle,5)
 	if btn(⬆️) then
 		char.y -= char.speed
-		char.anim=char_animation.a_run
+		char.anim:setsprite(char_animation.a_run)
 		char.direction=utils.dir_u
 	elseif btn(⬇️) then
 		char.y += char.speed
-		char.anim=char_animation.a_run
+		char.anim:setsprite(char_animation.a_run)
 		char.direction=utils.dir_d
 	end
 	if btn(➡️) then
 		char.x += char.speed
-		char.anim=char_animation.a_run
+		char.anim:setsprite(char_animation.a_run)
 		char.direction=utils.dir_r
 	elseif btn(⬅️) then
 	 char.x -= char.speed
-		char.anim=char_animation.a_run
+		char.anim:setsprite(char_animation.a_run)
 		char.direction=utils.dir_l
 	end 
+	char.anim:update()
 end
 -->8
 -- utils
@@ -119,39 +119,45 @@ utils={
  dir_d=4,
 }
 
-animator={
-	speed=100,
-	next_update=0,
-	twoframes=1,
-	threeframes=1,
-	fourframes=1,
-}
-
-function animator.update()
-	if animator.next_update <= utils.mstime then
-	 animator.twoframes = (animator.twoframes % 2) + 1
-	 animator.threeframes = (animator.threeframes % 3) + 1
-		animator.fourframes = (animator.fourframes % 4) + 1
-	 animator.next_update += animator.speed	
-	end
-end
-
-function animator.getsprite(sarr)
-	len = #sarr
-	if len == 2 then
-		return sarr[animator.twoframes]
- elseif len == 3 then
- 	return sarr[animator.threeframes]
-	elseif len == 4 then
-		return sarr[animator.fourframes]
-	end
-end
-
 function utils.update()
 	utils.mstime=flr(time()*1000)
-	
-	animator.update()
 end
+-->8
+-- sergej test
+
+myannimator= {
+  i = 1,
+  frames = 1,
+  everyxframe = 10;
+  arr = {},
+}
+
+function myannimator:new(o)
+  o = o or {}
+  setmetatable(o, self)
+  self.__index = self
+  return o
+end
+-- set the sprite and update after everyxframe
+function myannimator:setsprite(sarr,everyxframe)
+	self.arr = sarr
+	self.everyxframe = everyxframe
+end
+
+function myannimator:getsprite()
+	if self.i > #self.arr then
+		self.i = 1
+	end
+	return self.arr[self.i]
+end
+
+function myannimator:update()
+	if self.frames == 0 then
+		self.i += 1
+	end
+	self.frames = (self.frames+1) % self.everyxframe
+end
+
 __gfx__
 00012000606660666066606660666066606660666066606616666661feeeeee87bbbbbb30000004000000030000300000b0dd030777777674f9f4fff7999a999
 07d1257000000000000000000000000000000000007777006d6666d6e8888882b3333331040000000300000003000030d3000b0d76777777fffff9f49999979a
