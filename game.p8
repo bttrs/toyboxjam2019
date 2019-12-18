@@ -41,6 +41,7 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
+	DEBUG=true
 	char.init()
 	solids = {}
 	add(solids,box)
@@ -64,30 +65,11 @@ function _draw()
 	cls ()
 	create_room()
 	char.draw()
-	rectfill(box.x, box.y, box.x+box.w, box.y+box.h, 1)
-	add_solid(box.x,box.y,box.w,box.h)
-	rectfill(box2.x, box2.y, box2.x+box2.w, box2.y+box2.h, 1)
-	add_solid(box2.x,box2.y,box2.w,box2.h)
 end -- fn
 ------------------------------
 
 -->8
 -- char tab
-box={
-	x=60,
-	y=60,
-	w=40,
-	h=40;
-}
-
-box2={
-	x=0,
-	y=20,
-	w=10,
-	h=10;
-}
-
-
 char={
 	x=0,
 	y=0,
@@ -108,15 +90,18 @@ function char.init()
 	char.direction = utils.dir_r
 end
 
+
 function char.draw()
 	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)
-	rect(char.x, char.y, char.x+char.w, char.y+char.h, 1)
-end
-
-function char.update()
-	if is_colliding(char) then
-		print("colliding")
+	if DEBUG then
+		rect(char.x, char.y, char.x+char.w, char.y+char.h, 8)
 	end
+	if is_colliding(char) then
+		print("colliding",0,0,7)
+	end
+end
+-- man kann scheinbar nicht  im update zeichnen
+function char.update()
 	char.anim:setsprite(char_animation.a_idle,5)
 	if btn(⬆️) then
 		char.y -= char.speed
@@ -191,7 +176,6 @@ function collide(pair)
 	o1 = pair[1]
 	o2 = pair[2]
 	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
-	print(col,0,0,7) -- for debug
 	return col;
 end
 
@@ -203,7 +187,7 @@ default_room={
 
 function is_colliding(obj)
 	for s in all(solids) do
-		if collide({s, obj}) then
+		if collide({s, obj}) and s != obj then
 			return true
 		end
 	end
@@ -220,13 +204,15 @@ end
 
 function add_solid(x,y,w,h)
 	add(solids, {x=x, y=y, w=w, h=h})
+	if DEBUG then
+		rect(x, y, x+w, y+h, 8)
+	end
 end
 
 function create_room()
 	solids={}
 	for x=0,15,1 do
 	 for y=0,15,1 do
-			add_solid(x,y,8,8)
 			draw_tile(x,y,default_room)
 		end
 	end
@@ -235,6 +221,7 @@ end
 function draw_tile(x,y,tileset)
 	-- draw walls
 	if x==0 or x==15 or y==0 or y==15 then
+		add_solid(x*8,y*8,8,8)
 		spr(tileset.wall[1],x*8,y*8)
 	end
 
