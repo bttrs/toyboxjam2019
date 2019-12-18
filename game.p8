@@ -42,6 +42,10 @@ __lua__
 -------------------------------
 function _init()
 	char.init()	
+	collidingobject = {}
+	add(collidingobject,box)
+	add(collidingobject,box2)
+	add(collidingobject,char)
 end
 
 -->8
@@ -60,8 +64,8 @@ function _draw()
 	cls ()
 	char.draw()
 	rectfill(box.x, box.y, box.x+box.w, box.y+box.h, 1)
-	print(collide(box,char),0,0,7)
-
+	rectfill(box2.x, box2.y, box2.x+box2.w, box2.y+box2.h, 1)
+	foreach(getallpairs(collidingobject),collide)
 end -- fn
 ------------------------------
 
@@ -72,6 +76,13 @@ box={
 	y=60,
 	w=40,
 	h=40;
+}
+
+box2={
+	x=0,
+	y=20,
+	w=10,
+	h=10;
 }
 
 
@@ -133,6 +144,16 @@ utils={
  dir_d=4,
 }
 
+function getallpairs(arr)
+	pairs={}
+	for i=1,#arr,1 do
+		for j=i+1,#arr,1 do
+			add(pairs,{arr[i],arr[j]})
+		end
+	end
+	return pairs
+end
+
 function utils.update()
 	utils.mstime=flr(time()*1000)
 end
@@ -172,9 +193,12 @@ function myannimator:update()
 	self.frames = (self.frames+1) % self.everyxframe
 end
 
-function collide(o1,o2) 
-	return o1.x < o2.x + o2.w and o2.x < o1.x + o1.w 
-        and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
+function collide(pair) 
+	o1 = pair[1]
+	o2 = pair[2]
+	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
+	print(col,0,0,7) -- for debug 
+	return col;
 end
 
 __gfx__
