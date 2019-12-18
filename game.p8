@@ -41,11 +41,11 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
-	char.init()	
-	collidingobject = {}
-	add(collidingobject,box)
-	add(collidingobject,box2)
-	add(collidingobject,char)
+	char.init()
+	solids = {}
+	add(solids,box)
+	add(solids,box2)
+	add(solids,char)
 end
 
 -->8
@@ -62,10 +62,12 @@ end -- fn
 -------------------------------
 function _draw()
 	cls ()
+	create_room()
 	char.draw()
 	rectfill(box.x, box.y, box.x+box.w, box.y+box.h, 1)
+	add_solid(box.x,box.y,box.w,box.h)
 	rectfill(box2.x, box2.y, box2.x+box2.w, box2.y+box2.h, 1)
-	foreach(getallpairs(collidingobject),collide)
+	add_solid(box2.x,box2.y,box2.w,box2.h)
 end -- fn
 ------------------------------
 
@@ -89,8 +91,8 @@ box2={
 char={
 	x=0,
 	y=0,
-	w=10,
-	h=10,
+	w=8,
+	h=8,
 	speed=1,
 	anim=nil
 }
@@ -107,11 +109,14 @@ function char.init()
 end
 
 function char.draw()
-	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)	
-	rect(char.x, char.y, char.x+char.w, char.y+char.h, 1)	
+	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)
+	rect(char.x, char.y, char.x+char.w, char.y+char.h, 1)
 end
 
 function char.update()
+	if is_colliding(char) then
+		print("colliding")
+	end
 	char.anim:setsprite(char_animation.a_idle,5)
 	if btn(⬆️) then
 		char.y -= char.speed
@@ -130,7 +135,7 @@ function char.update()
 	 char.x -= char.speed
 		char.anim:setsprite(char_animation.a_run)
 		char.direction=utils.dir_l
-	end 
+	end
 	char.anim:update()
 end
 -->8
@@ -144,21 +149,9 @@ utils={
  dir_d=4,
 }
 
-function getallpairs(arr)
-	pairs={}
-	for i=1,#arr,1 do
-		for j=i+1,#arr,1 do
-			add(pairs,{arr[i],arr[j]})
-		end
-	end
-	return pairs
-end
-
 function utils.update()
 	utils.mstime=flr(time()*1000)
 end
--->8
--- sergej test
 
 myannimator= {
   i = 1,
@@ -173,6 +166,7 @@ function myannimator:new(o)
   self.__index = self
   return o
 end
+
 -- set the sprite and update after everyxframe
 function myannimator:setsprite(sarr,everyxframe)
 	self.arr = sarr
@@ -193,14 +187,58 @@ function myannimator:update()
 	self.frames = (self.frames+1) % self.everyxframe
 end
 
-function collide(pair) 
+function collide(pair)
 	o1 = pair[1]
 	o2 = pair[2]
 	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
-	print(col,0,0,7) -- for debug 
+	print(col,0,0,7) -- for debug
 	return col;
 end
 
+-->8
+-- room tab
+default_room={
+	wall={1,2}
+}
+
+function is_colliding(obj)
+	for s in all(solids) do
+		if collide({s, obj}) then
+			return true
+		end
+	end
+	return false
+
+	--for solid in solids do
+	--	if x >= solid.x and x <= solid.x+solid.size then
+	--		return true
+	--	elseif y >= solid.y and y <= solid.y+solid.size then
+	--		return true
+	--	end
+	--end
+end
+
+function add_solid(x,y,w,h)
+	add(solids, {x=x, y=y, w=w, h=h})
+end
+
+function create_room()
+	solids={}
+	for x=0,15,1 do
+	 for y=0,15,1 do
+			add_solid(x,y,8,8)
+			draw_tile(x,y,default_room)
+		end
+	end
+end
+
+function draw_tile(x,y,tileset)
+	-- draw walls
+	if x==0 or x==15 or y==0 or y==15 then
+		spr(tileset.wall[1],x*8,y*8)
+	end
+
+end
 __gfx__
 00012000606660666066606660666066606660666066606616666661feeeeee87bbbbbb30000004000000030000300000b0dd030777777674f9f4fff7999a999
 07d1257000000000000000000000000000000000007777006d6666d6e8888882b3333331040000000300000003000030d3000b0d76777777fffff9f49999979a
