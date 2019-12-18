@@ -221,7 +221,12 @@ end
 function draw_tile(x,y,tileset)
 	-- draw walls
 	if x==0 or x==15 or y==0 or y==15 then
+
+	if y==0 and x > 0 and x < 15 then
+		add_solid(x*8,y*8,8,2)
+	else
 		add_solid(x*8,y*8,8,8)
+	end
 		spr(tileset.wall[1],x*8,y*8)
 	end
 
