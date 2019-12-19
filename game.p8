@@ -4,7 +4,7 @@ __lua__
 -- todo:
 -- * generate new room when entering door
 -- * player attack
--- * enemy 
+-- * enemy
 
 -- toy box jam start cart
 -- by that tom hall & friends
@@ -46,6 +46,22 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
+	game_manager.init()
+end
+
+function _update60()
+	game_manager.update()
+end
+
+function _draw()
+	game_manager.draw()
+end
+
+-->8
+-- game manager tab
+game_manager={}
+
+function game_manager.init()
 	debug=true
 	rooms_init()
 	char.init()
@@ -53,20 +69,13 @@ function _init()
 	trigger = {} -- {{x,y,w,h,type}}
 end
 
--->8
--- update tab
--------------------------------
-function _update60()
+function game_manager.update()
 	utils.update()
 	rooms_update()
 	char.update()
-end -- fn
+end
 
-
--->8
---draw tab
--------------------------------
-function _draw()
+function game_manager.draw()
 	cls ()
 	draw_room()
 	char.draw()
@@ -87,10 +96,6 @@ function debug_draw_trigger(obj)
 	h = y + obj.triggerbox.h-1
 	rect(x, y, w, h, 3)
 end
-
- -- fn
-------------------------------
-
 -->8
 -- char tab
 char={
@@ -146,11 +151,11 @@ function char.update()
 		char_copy.anim:setsprite(char_animation.a_run)
 		char_copy.direction=utils.dir_l
 	end
-	
+
 	if not is_colliding(char_copy) then
 	 char = char_copy
 	end
-	
+
 	t = is_triggering(char)
 	if t != nil then
 		if debug then
@@ -317,7 +322,7 @@ function generate_room(room_set)
 				end
 		end
 	end
-	rooms[0] = room	
+	rooms[0] = room
 end
 
 function draw_room()
@@ -691,4 +696,3 @@ __music__
 00 373b4344
 02 393b4344
 03 3e424344
-
