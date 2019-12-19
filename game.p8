@@ -45,6 +45,7 @@ function _init()
 	rooms_init()
 	char.init()
 	solids = {}
+	trigger = {} -- {{x,y,w,h,type}}
 end
 
 -->8
@@ -65,12 +66,21 @@ function _draw()
 	draw_room()
 	char.draw()
 	if debug then
-		foreach(solids, debug_draw)
+		foreach(solids, debug_draw_solids)
+		foreach(trigger, debug_draw_trigger)
 	end
 end
 
-function debug_draw(obj)
-	rect(obj.x, obj.y, obj.x+obj.w, obj.y+obj.h, 8)
+function debug_draw_solids(obj)
+	rect(obj.x, obj.y, obj.x+obj.w-1, obj.y+obj.h-1, 8)
+end
+
+function debug_draw_trigger(obj)
+	x = obj.x+obj.triggerbox.x
+	y = obj.y+obj.triggerbox.y
+	w = x + obj.triggerbox.w-1
+	h = y + obj.triggerbox.h-1
+	rect(x, y, w, h, 3)
 end
 
  -- fn
@@ -83,6 +93,7 @@ char={
 	y=64,
 	w=8,
 	h=8,
+	triggerbox={x=0,y=0,w=8,h=8}, -- these are relative values
 	speed=1,
 	anim=nil
 }
@@ -102,7 +113,7 @@ end
 function char.draw()
 	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)
 	if debug then
-		rect(char.x, char.y, char.x+char.w, char.y+char.h, 8)
+		rect(char.x, char.y, char.x+char.w, char.y+char.h, 4)
 	end
 	if is_colliding(char) then
 		print("colliding",0,0,7)
@@ -134,6 +145,13 @@ function char.update()
 	if not is_colliding(char_copy) then
 	 char = char_copy
 	end
+	
+	t = is_triggering(char)
+	if t != nil then
+		if debug then
+			printh("triggered with: "..t.trigger_type)
+	 end
+	end
 	char.anim:update()
 end
 -->8
@@ -147,7 +165,13 @@ utils={
  dir_d=4,
 }
 
+trigger_type={
+	door=0,
+	mob=1,
+}
+
 function utils.update()
+	trigger = {}
 	utils.mstime=flr(time()*1000)
 end
 
@@ -185,6 +209,23 @@ function myannimator:update()
 	self.frames = (self.frames+1) % self.everyxframe
 end
 
+function add_solid(obj)
+	add(solids, obj)
+end
+
+function add_trigger(obj)
+	add(trigger, obj)
+end
+
+function is_triggering(obj)
+	for t in all(trigger) do
+	 if _trigger({t, obj}) and t != obj then
+	 	return t
+	 end
+	end
+	return nil
+end
+
 function is_colliding(obj)
 	for s in all(solids) do
 		if collide({s, obj}) and s != obj then
@@ -198,6 +239,21 @@ function collide(pair)
 	o1 = pair[1]
 	o2 = pair[2]
 	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
+	return col;
+end
+
+function _trigger(pair)
+	o1 = pair[1]
+	o2 = pair[2]
+	x1 = o1.x+o1.triggerbox.x
+	x2 = o2.x+o2.triggerbox.x
+	y1 = o1.y+o1.triggerbox.y
+	y2 = o2.y+o2.triggerbox.y
+	w1 = o1.triggerbox.w
+	w2 = o2.triggerbox.w
+	h1 = o1.triggerbox.h
+	h2 = o2.triggerbox.h
+	col = x1 < x2 + w2 and x2 < x1 + w1 and y1 < y2 + h2 and y2 < y1 + h1
 	return col;
 end
 
@@ -218,8 +274,12 @@ default_room={
 
 function rooms_update()
 	solids={}
-	room = rooms[1]
+	room = rooms[0]
 	foreach(room.walls, add_solid)
+	foreach(room.doors, function(d)
+		add_solid(d)
+		add_trigger(d)
+	end)
 end
 
 function rooms_init()
@@ -242,7 +302,9 @@ function generate_room(room_set)
 	for x=0,15,1 do
 	 for y=0,15,1 do
 				if x==0 or x==15 or y==0 or y==15 then
-					if y==0 and x > 0 and x < 15 then
+					if y==0 and x==8 then
+						add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=0,y=0,w=8,h=8}})
+					elseif y==0 and x > 0 and x < 15 then
 						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					else
 						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
@@ -250,16 +312,13 @@ function generate_room(room_set)
 				end
 		end
 	end
-	add(rooms, room)	
+	rooms[0] = room	
 end
 
 function draw_room()
-	room = rooms[1]
+	room = rooms[0]
 	foreach(room.walls, draw_tile)
-end
-
-function add_solid(obj)
-	add(solids, {x=obj.x, y=obj.y, w=obj.w-1, h=obj.h-1})
+	foreach(room.doors, draw_tile)
 end
 
 function draw_tile(tile)
