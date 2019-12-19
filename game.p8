@@ -1,6 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
+-- todo:
+-- * generate new room when entering door
+-- * player attack
+-- * enemy 
+
 -- toy box jam start cart
 -- by that tom hall & friends
 -- sprites/sfx/code: that tom hall
