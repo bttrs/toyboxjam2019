@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 -- todo:
--- * generate new room when entering door
+-- * make better: generate new room when entering door
 -- * player attack
 -- * enemy
 
@@ -63,26 +63,40 @@ game_manager={}
 
 function game_manager.init()
 	debug=true
-	rooms_init()
-	char.init()
 	solids = {}
 	trigger = {} -- {{x,y,w,h,type}}
+	--rooms_init()
+	char.init()
+	game_manager.rooms = {}
+	game_manager.rooms[0] = generate_room(default_room)
+	game_manager.current_room = 0
+	load_room(game_manager.rooms[0])
 end
 
 function game_manager.update()
 	utils.update()
-	rooms_update()
 	char.update()
 end
 
 function game_manager.draw()
 	cls ()
-	draw_room()
+	draw_room(game_manager.rooms[game_manager.current_room])
 	char.draw()
 	if debug then
 		foreach(solids, debug_draw_solids)
 		foreach(trigger, debug_draw_trigger)
 	end
+end
+
+function game_manager.door_triggered(door)
+	id = door.next_room_id
+	if game_manager.rooms[id] == nil then
+		game_manager.rooms[id] = generate_room(default_room)
+	end
+	game_manager.current_room = id
+	load_room(game_manager.rooms[id])
+	char.x = 64
+	char.y = 64
 end
 
 function debug_draw_solids(obj)
@@ -157,10 +171,8 @@ function char.update()
 	end
 
 	t = is_triggering(char)
-	if t != nil then
-		if debug then
-			printh("triggered with: "..t.trigger_type)
-	 end
+	if t != nil and t.trigger_type==trigger_type.door then
+		game_manager.door_triggered(t)
 	end
 	char.anim:update()
 end
@@ -181,7 +193,6 @@ trigger_type={
 }
 
 function utils.update()
-	trigger = {}
 	utils.mstime=flr(time()*1000)
 end
 
@@ -282,21 +293,6 @@ default_room={
 	floor={}
 }
 
-function rooms_update()
-	solids={}
-	room = rooms[0]
-	foreach(room.walls, add_solid)
-	foreach(room.doors, function(d)
-		add_solid(d)
-		add_trigger(d)
-	end)
-end
-
-function rooms_init()
-	rooms={}
-	generate_room(default_room)
-end
-
 function generate_room(room_set)
 	local room={
 		walls={
@@ -313,7 +309,7 @@ function generate_room(room_set)
 	 for y=0,15,1 do
 				if x==0 or x==15 or y==0 or y==15 then
 					if y==0 and x==8 then
-						add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=0,y=0,w=8,h=8}})
+						add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=0,y=0,w=8,h=8}, next_room_id=1})
 					elseif y==0 and x > 0 and x < 15 then
 						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					else
@@ -322,11 +318,19 @@ function generate_room(room_set)
 				end
 		end
 	end
-	rooms[0] = room
+
+	return room
 end
 
-function draw_room()
-	room = rooms[0]
+function load_room(room)
+	foreach(room.walls, add_solid)
+	foreach(room.doors, function(d)
+		add_solid(d)
+		add_trigger(d)
+	end)
+end
+
+function draw_room(room)
 	foreach(room.walls, draw_tile)
 	foreach(room.doors, draw_tile)
 end
@@ -696,3 +700,4 @@ __music__
 00 373b4344
 02 393b4344
 03 3e424344
+
