@@ -41,12 +41,9 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
-	DEBUG=true
+	DEBUG=false
 	char.init()
 	solids = {}
-	add(solids,box)
-	add(solids,box2)
-	add(solids,char)
 end
 
 -->8
@@ -71,8 +68,8 @@ end -- fn
 -->8
 -- char tab
 char={
-	x=0,
-	y=0,
+	x=64,
+	y=64,
 	w=8,
 	h=8,
 	speed=1,
@@ -100,26 +97,31 @@ function char.draw()
 		print("colliding",0,0,7)
 	end
 end
--- man kann scheinbar nicht  im update zeichnen
+-- man kann scheinbar nicht  im update zeichnen <- stimmt
 function char.update()
 	char.anim:setsprite(char_animation.a_idle,5)
+	char_copy = copy(char)
 	if btn(⬆️) then
-		char.y -= char.speed
-		char.anim:setsprite(char_animation.a_run)
-		char.direction=utils.dir_u
+		char_copy.y -= char.speed
+		char_copy.anim:setsprite(char_animation.a_run)
+		char_copy.direction=utils.dir_u
 	elseif btn(⬇️) then
-		char.y += char.speed
-		char.anim:setsprite(char_animation.a_run)
-		char.direction=utils.dir_d
+		char_copy.y += char.speed
+		char_copy.anim:setsprite(char_animation.a_run)
+		char_copy.direction=utils.dir_d
 	end
 	if btn(➡️) then
-		char.x += char.speed
-		char.anim:setsprite(char_animation.a_run)
-		char.direction=utils.dir_r
+		char_copy.x += char.speed
+		char_copy.anim:setsprite(char_animation.a_run)
+		char_copy.direction=utils.dir_r
 	elseif btn(⬅️) then
-	 char.x -= char.speed
-		char.anim:setsprite(char_animation.a_run)
-		char.direction=utils.dir_l
+	 char_copy.x -= char.speed
+		char_copy.anim:setsprite(char_animation.a_run)
+		char_copy.direction=utils.dir_l
+	end
+	
+	if not is_colliding(char_copy) then
+	 char = char_copy
 	end
 	char.anim:update()
 end
@@ -172,19 +174,6 @@ function myannimator:update()
 	self.frames = (self.frames+1) % self.everyxframe
 end
 
-function collide(pair)
-	o1 = pair[1]
-	o2 = pair[2]
-	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
-	return col;
-end
-
--->8
--- room tab
-default_room={
-	wall={1,2}
-}
-
 function is_colliding(obj)
 	for s in all(solids) do
 		if collide({s, obj}) and s != obj then
@@ -192,20 +181,33 @@ function is_colliding(obj)
 		end
 	end
 	return false
-
-	--for solid in solids do
-	--	if x >= solid.x and x <= solid.x+solid.size then
-	--		return true
-	--	elseif y >= solid.y and y <= solid.y+solid.size then
-	--		return true
-	--	end
-	--end
 end
 
+function collide(pair)
+	o1 = pair[1]
+	o2 = pair[2]
+	col = o1.x < o2.x + o2.w and o2.x < o1.x + o1.w and o1.y < o2.y + o2.h and o2.y < o1.y + o1.h
+	return col;
+end
+
+function copy(obj)
+	t={}
+	for key, value in pairs(obj) do
+	  t[key] = value
+	end
+	return t
+end
+-->8
+-- room tab
+default_room={
+	wall={1,2}
+}
+
+
 function add_solid(x,y,w,h)
-	add(solids, {x=x, y=y, w=w, h=h})
+	add(solids, {x=x, y=y, w=w-1, h=h-1})
 	if DEBUG then
-		rect(x, y, x+w, y+h, 8)
+		rect(x, y, x+w-1, y+h-1, 8)
 	end
 end
 
@@ -223,7 +225,7 @@ function draw_tile(x,y,tileset)
 	if x==0 or x==15 or y==0 or y==15 then
 
 	if y==0 and x > 0 and x < 15 then
-		add_solid(x*8,y*8,8,2)
+		add_solid(x*8,y*8,8,8)
 	else
 		add_solid(x*8,y*8,8,8)
 	end
