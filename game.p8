@@ -41,7 +41,8 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
-	DEBUG=false
+	debug=true
+	rooms_init()
 	char.init()
 	solids = {}
 end
@@ -51,6 +52,7 @@ end
 -------------------------------
 function _update60()
 	utils.update()
+	rooms_update()
 	char.update()
 end -- fn
 
@@ -60,9 +62,18 @@ end -- fn
 -------------------------------
 function _draw()
 	cls ()
-	create_room()
+	draw_room()
 	char.draw()
-end -- fn
+	if debug then
+		foreach(solids, debug_draw)
+	end
+end
+
+function debug_draw(obj)
+	rect(obj.x, obj.y, obj.x+obj.w, obj.y+obj.h, 8)
+end
+
+ -- fn
 ------------------------------
 
 -->8
@@ -90,7 +101,7 @@ end
 
 function char.draw()
 	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)
-	if DEBUG then
+	if debug then
 		rect(char.x, char.y, char.x+char.w, char.y+char.h, 8)
 	end
 	if is_colliding(char) then
@@ -200,38 +211,59 @@ end
 -->8
 -- room tab
 default_room={
-	wall={1,2}
+	wall={1,2},
+	door={4},
+	floor={}
 }
 
-
-function add_solid(x,y,w,h)
-	add(solids, {x=x, y=y, w=w-1, h=h-1})
-	if DEBUG then
-		rect(x, y, x+w-1, y+h-1, 8)
-	end
+function rooms_update()
+	solids={}
+	room = rooms[1]
+	foreach(room.walls, add_solid)
 end
 
-function create_room()
-	solids={}
+function rooms_init()
+	rooms={}
+	generate_room(default_room)
+end
+
+function generate_room(room_set)
+	local room={
+		walls={
+			--{x=0,y=0,w=8,h=8,spritenr=1},
+		},
+		doors={
+			--{x=0,y=0,w=8,h=8,spritenr=3, is_open=false, room_id=123},
+		},
+		floors={
+			--{x=0,y=0,w=8,h=8,spritenr=98},
+		},
+	}
 	for x=0,15,1 do
 	 for y=0,15,1 do
-			draw_tile(x,y,default_room)
+				if x==0 or x==15 or y==0 or y==15 then
+					if y==0 and x > 0 and x < 15 then
+						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
+					else
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
+					end
+				end
 		end
 	end
+	add(rooms, room)	
 end
 
-function draw_tile(x,y,tileset)
-	-- draw walls
-	if x==0 or x==15 or y==0 or y==15 then
+function draw_room()
+	room = rooms[1]
+	foreach(room.walls, draw_tile)
+end
 
-	if y==0 and x > 0 and x < 15 then
-		add_solid(x*8,y*8,8,8)
-	else
-		add_solid(x*8,y*8,8,8)
-	end
-		spr(tileset.wall[1],x*8,y*8)
-	end
+function add_solid(obj)
+	add(solids, {x=obj.x, y=obj.y, w=obj.w-1, h=obj.h-1})
+end
 
+function draw_tile(tile)
+	spr(tile.spritenr,tile.x,tile.y)
 end
 __gfx__
 00012000606660666066606660666066606660666066606616666661feeeeee87bbbbbb30000004000000030000300000b0dd030777777674f9f4fff7999a999
