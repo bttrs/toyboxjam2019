@@ -70,6 +70,7 @@ function game_manager.init()
 	game_manager.rooms = {}
 	game_manager.rooms[0] = generate_room(default_room)
 	game_manager.current_room = 0
+	game_manager.room_id_seq = 0
 	load_room(game_manager.rooms[0])
 end
 
@@ -97,6 +98,11 @@ function game_manager.door_triggered(door)
 	load_room(game_manager.rooms[id])
 	char.x = 64
 	char.y = 64
+end
+
+function game_manager.next_room_nr()
+	game_manager.room_id_seq += 1
+	return game_manager.room_id_seq
 end
 
 function debug_draw_solids(obj)
@@ -293,7 +299,7 @@ default_room={
 	floor={}
 }
 
-function generate_room(room_set)
+function generate_room(room_set, door_enter_pos)
 	local room={
 		walls={
 			--{x=0,y=0,w=8,h=8,spritenr=1},
@@ -305,11 +311,41 @@ function generate_room(room_set)
 			--{x=0,y=0,w=8,h=8,spritenr=98},
 		},
 	}
+	-- random integer between 2 and 4
+	door_amount = flr(rnd(4)) + 2
+	doors = get_doors(door_amount)
+	printh(#doors)
 	for x=0,15,1 do
 	 for y=0,15,1 do
 				if x==0 or x==15 or y==0 or y==15 then
 					if y==0 and x==8 then
-						add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=0,y=0,w=8,h=8}, next_room_id=1})
+						-- door position down
+						if doors[utils.dir_d] then
+							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						else
+							add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
+						end
+					elseif y==15 and x==8 then
+						-- door position up
+						if doors[utils.dir_u] then
+							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						else
+							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
+						end
+					elseif y==8 and x==0 then
+						-- ddor position left
+						if doors[utils.dir_l] then
+							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						else
+							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
+						end
+					elseif y==8 and x==15 then
+						-- door position right
+						if doors[utils.dir_r] then
+							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						else
+							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
+						end
 					elseif y==0 and x > 0 and x < 15 then
 						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					else
@@ -337,6 +373,37 @@ end
 
 function draw_tile(tile)
 	spr(tile.spritenr,tile.x,tile.y)
+end
+
+-- get door positions except for entry_door, since this is already a known position
+function get_doors(door_amount, omit_position)
+	-- don't mind this function. It's fucked up. I'm just tired rn.
+	printh("amount: "..door_amount)
+	positions={}
+	if omit_position != utils.dir_l then
+		positions[utils.dir_l]=true
+	elseif omit_position != utils.dir_r then
+		positions[utils.dir_r]=true
+	elseif omit_position != utils.dir_u then
+		positions[utils.dir_u]=true
+	elseif omit_position != utils.dir_d then
+		positions[utils.dir_d]=true
+	end
+
+	if #positions <= door_amount then
+		return positions
+	end
+
+	-- delete one entry
+	positions[flr(rnd(#positions)) + 1] = nil
+
+	if #positions <= door_amount then
+		return positions
+	end
+
+	-- delete another entry
+	positions[flr(rnd(#positions)) + 1] = nil
+	return positions
 end
 __gfx__
 00012000606660666066606660666066606660666066606616666661feeeeee87bbbbbb30000004000000030000300000b0dd030777777674f9f4fff7999a999
