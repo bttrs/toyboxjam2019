@@ -68,10 +68,11 @@ function game_manager.init()
 	--rooms_init()
 	char.init()
 	game_manager.rooms = {}
-	game_manager.current_room = 0
-	game_manager.room_id_seq = 0
-	game_manager.rooms[0] = generate_room(default_room)
-	load_room(game_manager.rooms[0])
+	game_manager.current_room = 1
+	game_manager.room_id_seq = 1
+	room = generate_room(default_room)
+	game_manager.rooms[1] = room
+	load_room(room)
 end
 
 function game_manager.update()
@@ -86,18 +87,29 @@ function game_manager.draw()
 	if debug then
 		foreach(solids, debug_draw_solids)
 		foreach(trigger, debug_draw_trigger)
+
+		--count generated rooms
+		room_cnt = 0
+		for k,v in pairs(game_manager.rooms) do
+			room_cnt+=1
+		end
 		print("roomnr: "..game_manager.current_room, 15, 15)
+		print("rooms generated: "..room_cnt, 15,22)
+		print("solids amount: "..#solids, 15,29)
+		print("trigger amount: "..#trigger, 15,36)
 	end
 end
 
 function game_manager.door_triggered(door)
+	solids = {}
+	trigger = {}
+
 	id = door.next_room_id
 	printh("triggered room: "..id..", current room: "..game_manager.current_room)
-	printh("room_id_seq: "..game_manager.room_id_seq)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(default_room, utils.dir_d, id)
+		game_manager.rooms[id] = generate_room(default_room, utils.dir_d, game_manager.current_room)
 	end
 	game_manager.current_room = id
 	load_room(game_manager.rooms[id])
@@ -307,6 +319,17 @@ function copy(obj)
 	end
 	return t
 end
+
+function printh_door(d)
+--{x=x, y=y, w=w, h=h, dir=dir, spritenr=sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id}
+	printh("### DOOR START ###")
+	printh("x: "..d.x..", y: "..d.y..", w: "..d.w..", h: "..d.h)
+	printh("spritenr: "..d.spritenr)
+	printh("trigger_type: "..d.trigger_type)
+	printh("next_room_id: "..d.next_room_id)
+	printh("triggerbox: {x="..d.triggerbox.x..", y="..d.triggerbox.y..", w="..d.triggerbox.w..", h="..d.triggerbox.h.."}")
+	printh("### DOOR END ###")
+end
 -->8
 -- room tab
 default_room={
@@ -342,7 +365,7 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 		doors = get_doors(door_amount, room_set.door[1], {pos=door_enter_pos, door=get_door(door_enter_pos, door_enter_id, room_set.door[1])})
 	else
 		printh("room generation: inital room")
-		doors = get_doors(door_amount)
+		doors = get_doors(door_amount, room_set.door[1])
 	end
 
 	printh("room generation: doors created")
@@ -403,9 +426,14 @@ end
 function draw_room(room)
 	foreach(room.walls, draw_tile)
 	foreach(room.doors, function(d)
+		if d.spritenr == nil then
+			printh("this door has no sprite: next_room_id "..d.next_room_id)
+			printh_door(d)
+			stop("this door has no sprite: next_room_id "..d.next_room_id, 10, 10)
+		end
 		draw_tile(d)
 		if debug then
-			print(d.next_room_id, d.x+2, d.y+2, 3)
+			print(d.next_room_id, d.x+1, d.y+2, 3)
 		end
 	end)
 end
@@ -415,6 +443,10 @@ function draw_tile(tile)
 end
 
 function get_door(pos, room_id, sprite_nr)
+	if sprite_nr == nil then
+		printh("FATAL door spritenr can't be nil")
+		stop("door spritenr can't be nil")
+	end
 	x=0
 	y=0
 	w=8
@@ -441,6 +473,10 @@ end
 -- existing door: {utils.dir_l: {door}}
 function get_doors(door_amount, sprite_nr, existing_door)
 	-- don't mind this function. It's fucked up. I'm just tired rn.
+	if sprite_nr == nil then
+		printh("sprite_nr cannot be nil")
+		stop("sprite_nr cannot be nil")
+	end
 
 	printh("door amount for this room: "..door_amount)
 	positions={}
