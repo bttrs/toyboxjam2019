@@ -123,7 +123,7 @@ function game_manager.door_triggered(door)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(default_room, utils.dir_d, game_manager.current_room)
+		game_manager.rooms[id] = generate_room(default_room, reverse_dir(door.dir), game_manager.current_room)
 	end
 	game_manager.current_room = id
 	load_room(game_manager.rooms[id])
@@ -241,7 +241,23 @@ myannimator= {
   arr = {},
 }
 
+function reverse_dir(dir)
+	if dir == utils.dir_l then
+		return utils.dir_r
+	elseif dir == utils.dir_r then
+		return utils.dir_l
+	elseif dir == utils.dir_u then
+		return utils.dir_d
+	elseif dir == utils.dir_d then
+		return utils.dir_u
+	end
+	--this shuold never happen
+	errtxt="wrong direction used: "..dir
+	printh(errtxt)
+	stop(errtxt)
+end
 -- TODO this might not be working
+-- DEPRECATED: i think this is unused
 function del_map(t, i)
 	local n=#t
 	if (i>0 and i<=n) then
@@ -522,13 +538,12 @@ function get_doors(door_amount, sprite_nr, existing_door)
 
 	door_array = {}
 	if existing_door != nil then
-		printh("get_doors: existing door dir: "..existing_door.door.dir)
+		add(door_array, existing_door.door)
+		printh("get_doors: added existing door: {x: "..existing_door.door.x..", y: "..existing_door.door.y..", next_room_id: "..existing_door.door.next_room_id..", dir: "..existing_door.door.dir.."} ")
 	end
 	foreach(positions, function(dir)
-		foobar=existing_door != nil
-		if existing_door != nil and dir == existing_door.door.dir then
-			add(door_array, existing_door.door)
-			printh("get_doors: added existing door at "..dir)
+		if existing_door != nil and existing_door.door.dir == dir then
+			printh("WARNING: door was created at existing doors place o.O")
 		else
 			add(door_array, get_door(dir, game_manager.next_room_nr(), sprite_nr))
 			printh("get_doors: added new door at "..dir)
@@ -898,3 +913,4 @@ __music__
 00 373b4344
 02 393b4344
 03 3e424344
+
