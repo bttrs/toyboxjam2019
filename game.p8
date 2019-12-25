@@ -78,6 +78,20 @@ end
 function game_manager.update()
 	utils.update()
 	char.update()
+
+	-- for debug
+	debug_btnp()
+end
+
+function debug_btnp()
+	if btnp(5) and btnp(4) then
+		if debug then
+			debug = false
+		else
+			debug = true
+		end
+		printh(debug)
+	end
 end
 
 function game_manager.draw()
