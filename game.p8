@@ -92,9 +92,11 @@ end
 
 function game_manager.door_triggered(door)
 	id = door.next_room_id
+	printh("triggered room: "..id..", current room: "..game_manager.current_room)
+	printh("room_id_seq: "..game_manager.room_id_seq)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
-		-- TODO: get door position
+		-- TODO: get door position and reverse it
 		game_manager.rooms[id] = generate_room(default_room, utils.dir_d, id)
 	end
 	game_manager.current_room = id
@@ -105,6 +107,7 @@ end
 
 function game_manager.next_room_nr()
 	game_manager.room_id_seq += 1
+	printh("next room id: "..game_manager.room_id_seq)
 	return game_manager.room_id_seq
 end
 
@@ -212,6 +215,16 @@ myannimator= {
   arr = {},
 }
 
+-- TODO this might not be working
+function del_map(t, i)
+	local n=#t
+	if (i>0 and i<=n) then
+									for j=i,n-1 do t[j]=t[j+1] end
+									t[n]=nil
+	end
+end
+
+
 function myannimator:new(o)
   o = o or {}
   setmetatable(o, self)
@@ -303,6 +316,11 @@ default_room={
 }
 
 function generate_room(room_set, door_enter_pos, door_enter_id)
+	printh("room generation: start")
+	if door_enter_id != nil then
+		printh("room generateion: door_enter_id: "..door_enter_id)
+	end
+
 	local room={
 		walls={
 			--{x=0,y=0,w=8,h=8,spritenr=1},
@@ -314,16 +332,20 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 			--{x=0,y=0,w=8,h=8,spritenr=98},
 		},
 	}
-	-- random integer between 2 and 4
-	door_amount = flr(rnd(4)) + 2
+	-- random integer between 2 and 4 (2,3,4)
+	door_amount = flr(rnd(3)) + 2
 
 	-- doors: {{utils.dir_l: {door}}}
 	doors={}
 	if door_enter_pos != nil and door_enter_id != nil then
+		printh("room generation: NOT initial room")
 		doors = get_doors(door_amount, room_set.door[1], {pos=door_enter_pos, door=get_door(door_enter_pos, door_enter_id, room_set.door[1])})
 	else
+		printh("room generation: inital room")
 		doors = get_doors(door_amount)
 	end
+
+	printh("room generation: doors created")
 
 	printh(#doors)
 	for x=0,15,1 do
@@ -331,29 +353,29 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 				if x==0 or x==15 or y==0 or y==15 then
 					if y==0 and x==8 then
 						-- door position down
-						if doors[utils.dir_d] then
-							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						if doors[utils.dir_d] != nil then
+							add(room.doors,  doors[utils.dir_d])
 						else
 							add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 						end
 					elseif y==15 and x==8 then
 						-- door position up
-						if doors[utils.dir_u] then
-							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						if doors[utils.dir_u] != nil then
+							add(room.doors,  doors[utils.dir_u])
 						else
 							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 						end
 					elseif y==8 and x==0 then
 						-- ddor position left
-						if doors[utils.dir_l] then
-							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						if doors[utils.dir_l] != nil then
+							add(room.doors, doors[utils.dir_l])
 						else
 							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 						end
 					elseif y==8 and x==15 then
 						-- door position right
-						if doors[utils.dir_r] then
-							add(room.doors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.door[1], trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=1})
+						if doors[utils.dir_r] != nil then
+							add(room.doors, doors[utils.dir_r])
 						else
 							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 						end
@@ -366,6 +388,7 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 		end
 	end
 
+	printh("room generation: done")
 	return room
 end
 
@@ -379,7 +402,12 @@ end
 
 function draw_room(room)
 	foreach(room.walls, draw_tile)
-	foreach(room.doors, draw_tile)
+	foreach(room.doors, function(d)
+		draw_tile(d)
+		if debug then
+			print(d.next_room_id, d.x+2, d.y+2, 3)
+		end
+	end)
 end
 
 function draw_tile(tile)
@@ -391,6 +419,7 @@ function get_door(pos, room_id, sprite_nr)
 	y=0
 	w=8
 	h=8
+	dir=pos
 	if pos == utils.dir_l then
 		x=0
 		y=8*8
@@ -405,36 +434,56 @@ function get_door(pos, room_id, sprite_nr)
 		x=8*8
 		y=0
 	end
-	return {x=x, y=y, w=w, h=h, spritenr=sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id}
+	return {x=x, y=y, w=w, h=h, dir=dir, spritenr=sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id}
 end
 
 -- get door positions except for entry_door, since this is already a known position
 -- existing door: {utils.dir_l: {door}}
 function get_doors(door_amount, sprite_nr, existing_door)
 	-- don't mind this function. It's fucked up. I'm just tired rn.
-	printh("amount: "..door_amount)
+
+	printh("door amount for this room: "..door_amount)
 	positions={}
-	positions[utils.dir_l]=get_door(utils.dir_l, game_manager.next_room_nr(), sprite_nr)
-	positions[utils.dir_r]=get_door(utils.dir_r, game_manager.next_room_nr(), sprite_nr)
-	positions[utils.dir_u]=get_door(utils.dir_u, game_manager.next_room_nr(), sprite_nr)
-	positions[utils.dir_d]=get_door(utils.dir_d, game_manager.next_room_nr(), sprite_nr)
+	add(positions, utils.dir_r)
+	add(positions, utils.dir_l)
+	add(positions, utils.dir_u)
+	add(positions, utils.dir_d)
+
 	if existing_door != nil then
-		positions[existing_door]=nil
+		del(positions, existing_door.dir)
 		door_amount -= 1
 	end
 
 	fn = function(arr)
+		printh("#arr: "..#arr.." , door_amount: "..door_amount)
 		if #arr == door_amount then
 			return arr
 		end
-		arr[flr(rnd(#arr)) + 1] = nil
+		if #arr == 0 then
+			stop()
+		end
+		delete_idx = flr(rnd(#arr)) + 1
+		printh("delete index: "..delete_idx)
+		del(arr, arr[delete_idx])
 		return fn(arr)
 	end
 
-	door_array = fn(positions)
+	positions = fn(positions)
+
+	door_array = {}
 	if existing_door != nil then
-		door_array[existing_door.pos]=existing_door.door
+		printh("get_doors: existing door dir: "..existing_door.door.dir)
 	end
+	foreach(positions, function(dir)
+		foobar=existing_door != nil
+		if existing_door != nil and dir == existing_door.door.dir then
+			add(door_array, existing_door.door)
+			printh("get_doors: added existing door at "..dir)
+		else
+			add(door_array, get_door(dir, game_manager.next_room_nr(), sprite_nr))
+			printh("get_doors: added new door at "..dir)
+		end
+	end)
 	return door_array
 end
 __gfx__
