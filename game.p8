@@ -90,7 +90,7 @@ function debug_btnp()
 		else
 			debug = true
 		end
-		printh(debug)
+		printh("toggle debug")
 	end
 end
 
@@ -400,38 +400,38 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 
 	printh("room generation: doors created")
 
+	door_pos_array = {}
+
+	foreach(doors, function(d)
+		add(room.doors,  d)
+		add(door_pos_array, {x=d.x, y=d.y})
+	end)
+
+	is_door_fn = function(x, y)
+		r = false
+		foreach(door_pos_array, function(pos)
+			if pos.x == x and pos.y == y then
+				r = true
+				return
+			end
+		end)
+		return r
+	end
+
 	printh(#doors)
 	for x=0,15,1 do
 	 for y=0,15,1 do
 				if x==0 or x==15 or y==0 or y==15 then
-					if y==0 and x==8 then
-						-- door position down
-						if doors[utils.dir_d] != nil then
-							add(room.doors,  doors[utils.dir_d])
-						else
-							add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
-						end
+					if is_door_fn(x, y) then
+						-- don't overdraw
+					elseif y==0 and x==8 then
+						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					elseif y==15 and x==8 then
-						-- door position up
-						if doors[utils.dir_u] != nil then
-							add(room.doors,  doors[utils.dir_u])
-						else
-							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
-						end
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==8 and x==0 then
-						-- ddor position left
-						if doors[utils.dir_l] != nil then
-							add(room.doors, doors[utils.dir_l])
-						else
-							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
-						end
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==8 and x==15 then
-						-- door position right
-						if doors[utils.dir_r] != nil then
-							add(room.doors, doors[utils.dir_r])
-						else
-							add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
-						end
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==0 and x > 0 and x < 15 then
 						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					else
@@ -463,7 +463,7 @@ function draw_room(room)
 		end
 		draw_tile(d)
 		if debug then
-			print(d.next_room_id, d.x+1, d.y+2, 3)
+			print(d.next_room_id, d.x+1, d.y+2, 2)
 		end
 	end)
 end
@@ -472,11 +472,15 @@ function draw_tile(tile)
 	spr(tile.spritenr,tile.x,tile.y)
 end
 
-function get_door(pos, room_id, sprite_nr)
+function get_door(pos, room_id, sprite_nr, sprite_nr_unlocked)
 	if sprite_nr == nil then
 		printh("FATAL door spritenr can't be nil")
 		stop("door spritenr can't be nil")
 	end
+	if sprite_nr_unlocked == nil then
+		sprite_nr_unlocked = 3
+	end
+
 	x=0
 	y=0
 	w=8
@@ -496,7 +500,8 @@ function get_door(pos, room_id, sprite_nr)
 		x=8*8
 		y=0
 	end
-	return {x=x, y=y, w=w, h=h, dir=dir, spritenr=sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id}
+	unlocked=true
+	return {x=x, y=y, w=w, h=h, dir=dir, spritenr=unlocked and sprite_nr_unlocked or sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id, unlocked=unlocked}
 end
 
 -- get door positions except for entry_door, since this is already a known position
@@ -913,4 +918,3 @@ __music__
 00 373b4344
 02 393b4344
 03 3e424344
-
