@@ -1,10 +1,21 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
--- todo:
--- * make better: generate new room when entering door
--- * player attack
--- * enemy
+-- TODO's prioritised:
+-- * first player attack
+-- * first enemy
+-- * difficulty (gradually increase enemy strength)
+-- * sound / sfx
+-- thats the mvp. the game is playable :D
+-- TODO's after mvp, not prioritised:
+-- * highscore (maybe # of cleared rooms?)
+-- * loot (second player attack)
+-- * chest with key (key is loot in another room?)
+-- * door with key (key is loot in another room?)
+-- * story (at the beginning, an explanation on how you got there?)
+-- * player dash/roll (maybe this should be prioritised quite high, since it increases the fun imo)
+-- * ???
+
 
 -- toy box jam start cart
 -- by that tom hall & friends
