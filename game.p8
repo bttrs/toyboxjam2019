@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 -- TODO's prioritised:
--- * first player attack
+-- (* first player attack, still needs hitbox detection) 
 -- * first enemy
 -- * difficulty (gradually increase enemy strength)
 -- * sound / sfx
