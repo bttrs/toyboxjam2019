@@ -159,6 +159,7 @@ function debug_draw_trigger(obj)
 	h = y + obj.triggerbox.h-1
 	rect(x, y, w, h, 3)
 end
+
 -->8
 -- char tab
 char={
@@ -168,23 +169,37 @@ char={
 	h=8,
 	triggerbox={x=0,y=0,w=8,h=8}, -- these are relative values
 	speed=1,
-	anim=nil
+	-- (init function) direction=utils.dir_r, -- left, up, right or down
+	-- (init function) look_direction=utils.dir_r, -- only left or right (used for mirroring of sprites)
+	anim=nil,
+	state=0,
+	state_start_time=0
 }
 
 char_animation={
 	a_idle={128,129},
-	a_run={144,145,146,147}
+	a_run={144,145,146,147,146,145},
+	a_attack={176,177,177,177,177,177},
+}
+
+char_anim_state={
+	idle=0,
+	attack=1
 }
 
 function char.init()
 	char.anim = myannimator:new()
  	char.anim:setsprite(char_animation.a_idle)
 	char.direction = utils.dir_r
+	char.look_direction = utils.dir_r
 end
 
 
 function char.draw()
-	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.direction==utils.dir_l)
+	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.look_direction==utils.dir_l)
+	if char.state == char_anim_state.attack then
+		char.draw_attack()
+	end
 	if debug then
 		rect(char.x, char.y, char.x+char.w, char.y+char.h, 4)
 	end
@@ -192,38 +207,137 @@ function char.draw()
 		print("colliding",0,0,7)
 	end
 end
+
+function char.draw_attack()
+	local multi = 1
+	local flip = char.look_direction == utils.dir_l
+	if flip then
+		multi = -1
+	end
+	offset_y = char.y
+	offset_x = char.x + (8 * multi)
+	printh(char.anim.i)
+	if (char.anim.i==2) then
+		--make other colors transparent
+		--make this frame's whip ones whip color
+		palt(4,true) --particle btm
+		palt(9,true) --particle mid
+		palt(10,true) -- particle top
+		palt(1,true) -- landed whip
+		pal(5,13) -- change gray to whip
+		spr(178,offset_x,offset_y,1,1,flip)
+		palt() -- restore all of it
+		pal()
+	elseif (char.anim.i==3) then
+		--make other colors transparent
+		--make this frame's whip ones whip color
+		palt(4,true) --particle top
+		palt(9,true) --particle mid
+		palt(10,true) -- particle btm
+		palt(5,true) -- curled whip
+		pal(1,13) -- change dk blue to whip
+		spr(178,offset_x,offset_y,1,1,flip)
+		palt() -- restore all of it
+		pal()
+	elseif (char.anim.i==4) then
+		--make other colors transparent
+		--make this frame's whip ones whip color
+		palt(4,true) --particle top
+		palt(9,true) --particle mid
+		--palt(10,true) -- particle btm
+		palt(5,true) -- curled whip
+		pal(1,13) -- change dk blue to whip
+		spr(178,offset_x,offset_y,1,1,flip)
+		palt() -- restore all of it
+		pal()
+	elseif (char.anim.i==5) then
+		palt(4,true) --particle top
+		--palt(9,true) --particle mid
+		palt(10,true) -- particle btm
+		palt(5,true) -- curled whip
+		pal(1,13) -- change dk blue to whip
+		spr(178,offset_x,offset_y,1,1,flip)
+		palt() -- restore all of it
+		pal()
+	elseif (char.anim.i==6) then
+		--palt(4,true) --particle top
+		palt(9,true) --particle mid
+		palt(10,true) -- particle btm
+		palt(5,true) -- curled whip
+		pal(1,13) -- change dk blue to whip
+		spr(178,offset_x,offset_y,1,1,flip)
+		palt() -- restore all of it
+		pal()
+	end
+end
+
+function char.check_attack_btn()
+	if btnp(5) and not btnp(6) then
+		char.anim:setsprite(char_animation.a_attack, 7, true)
+		char.state = char_anim_state.attack
+		char.state_start_time = utils.mstime
+	end
+end
+
 -- man kann scheinbar nicht  im update zeichnen <- stimmt
 function char.update()
-	char.anim:setsprite(char_animation.a_idle,5)
+	if char.state == char_anim_state.idle then
+		char.idle()
+	elseif char.state == char_anim_state.attack then
+		char.attack()
+	end
+
+	char.anim:update()
+end
+
+function char.attack() 
+	local attack_length = 680
+
+
+
+
+	if utils.mstime > attack_length + char.state_start_time then
+		char.state = char_anim_state.idle
+	end
+end
+
+function char.idle()
+	char.anim:setsprite(char_animation.a_idle,10)
 	char_copy = copy(char)
+	local speed = char.speed
 	if btn(⬆️) then
-		char_copy.y -= char.speed
+		char_copy.y -= speed
 		char_copy.anim:setsprite(char_animation.a_run)
 		char_copy.direction=utils.dir_u
+		speed = sqrt(speed*speed/2)
 	elseif btn(⬇️) then
-		char_copy.y += char.speed
+		char_copy.y += speed
 		char_copy.anim:setsprite(char_animation.a_run)
 		char_copy.direction=utils.dir_d
+		speed = sqrt(speed*speed/2)
 	end
 	if btn(➡️) then
-		char_copy.x += char.speed
+		char_copy.x += speed
 		char_copy.anim:setsprite(char_animation.a_run)
 		char_copy.direction=utils.dir_r
+		char_copy.look_direction=utils.dir_r
 	elseif btn(⬅️) then
-	 char_copy.x -= char.speed
+	char_copy.x -= speed
 		char_copy.anim:setsprite(char_animation.a_run)
 		char_copy.direction=utils.dir_l
+		char_copy.look_direction=utils.dir_l
 	end
 
 	if not is_colliding(char_copy) then
-	 char = char_copy
+	char = char_copy
 	end
 
 	t = is_triggering(char)
 	if t != nil and t.trigger_type==trigger_type.door then
 		game_manager.door_triggered(t)
 	end
-	char.anim:update()
+
+	char.check_attack_btn()
 end
 -->8
 -- utils
@@ -272,8 +386,8 @@ end
 function del_map(t, i)
 	local n=#t
 	if (i>0 and i<=n) then
-									for j=i,n-1 do t[j]=t[j+1] end
-									t[n]=nil
+		for j=i,n-1 do t[j]=t[j+1] end
+		t[n]=nil
 	end
 end
 
@@ -286,9 +400,13 @@ function myannimator:new(o)
 end
 
 -- set the sprite and update after everyxframe
-function myannimator:setsprite(sarr,everyxframe)
+function myannimator:setsprite(sarr,everyxframe,reset)
 	self.arr = sarr
 	self.everyxframe = everyxframe
+	if reset then
+		self.i = 0
+		self.frames = 0
+	end
 end
 
 function myannimator:getsprite()
@@ -929,3 +1047,4 @@ __music__
 00 373b4344
 02 393b4344
 03 3e424344
+
