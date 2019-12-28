@@ -73,13 +73,15 @@ end
 game_manager={}
 
 function game_manager.init()
-	debug=true
+	debug=false
 	solids = {}
+	moving_solids = {}
 	trigger = {} -- {{x,y,w,h,type}}
+	moving_trigger = {}
 	--rooms_init()
 	char.init()
 	game_manager.rooms = {}
-	game_manager.current_room = 1
+	game_manager.current_room_id = 1
 	game_manager.room_id_seq = 1
 	room = generate_room(default_room)
 	game_manager.rooms[1] = room
@@ -87,11 +89,22 @@ function game_manager.init()
 end
 
 function game_manager.update()
+	game_manager.update_moving_solids_and_triggers()
+
 	utils.update()
 	char.update()
 
 	-- for debug
 	debug_btnp()
+end
+
+function game_manager.update_moving_solids_and_triggers()
+	moving_solids = {}
+	moving_trigger = {}
+
+	local room = game_manager.rooms[game_manager.current_room_id]
+	foreach(room.enemies, add_moving_solid)
+	foreach(room.enemies, add_moving_trigger)
 end
 
 function debug_btnp()
@@ -107,21 +120,23 @@ end
 
 function game_manager.draw()
 	cls ()
-	draw_room(game_manager.rooms[game_manager.current_room])
+	draw_room(game_manager.rooms[game_manager.current_room_id])
 	char.draw()
 	if debug then
 		foreach(solids, debug_draw_solids)
 		foreach(trigger, debug_draw_trigger)
+		foreach(moving_solids, debug_draw_moving_solids)
+		foreach(moving_trigger, debug_draw_moving_trigger)
 
 		--count generated rooms
 		room_cnt = 0
 		for k,v in pairs(game_manager.rooms) do
 			room_cnt+=1
 		end
-		print("roomnr: "..game_manager.current_room, 15, 15)
+		print("roomnr: "..game_manager.current_room_id, 15, 15)
 		print("rooms generated: "..room_cnt, 15,22)
-		print("solids amount: "..#solids, 15,29)
-		print("trigger amount: "..#trigger, 15,36)
+		print("solids amount: "..#solids+#moving_solids, 15,29)
+		print("trigger amount: "..#trigger+#moving_trigger, 15,36)
 	end
 end
 
@@ -130,13 +145,13 @@ function game_manager.door_triggered(door)
 	trigger = {}
 
 	id = door.next_room_id
-	printh("triggered room: "..id..", current room: "..game_manager.current_room)
+	printh("triggered room: "..id..", current room: "..game_manager.current_room_id)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(default_room, reverse_dir(door.dir), game_manager.current_room)
+		game_manager.rooms[id] = generate_room(default_room, reverse_dir(door.dir), game_manager.current_room_, 1)
 	end
-	game_manager.current_room = id
+	game_manager.current_room_id = id
 	load_room(game_manager.rooms[id])
 	char.x = 64
 	char.y = 64
@@ -150,6 +165,18 @@ end
 
 function debug_draw_solids(obj)
 	rect(obj.x, obj.y, obj.x+obj.w-1, obj.y+obj.h-1, 8)
+end
+
+function debug_draw_moving_solids(obj)
+	rect(obj.x, obj.y, obj.x+obj.w-1, obj.y+obj.h-1, 9)
+end
+
+function debug_draw_moving_trigger(obj)
+	x = obj.x+obj.triggerbox.x
+	y = obj.y+obj.triggerbox.y
+	w = x + obj.triggerbox.w-1
+	h = y + obj.triggerbox.h-1
+	rect(x, y, w, h, 10)
 end
 
 function debug_draw_trigger(obj)
@@ -216,7 +243,6 @@ function char.draw_attack()
 	end
 	offset_y = char.y
 	offset_x = char.x + (8 * multi)
-	printh(char.anim.i)
 	if (char.anim.i==2) then
 		--make other colors transparent
 		--make this frame's whip ones whip color
@@ -339,6 +365,48 @@ function char.idle()
 
 	char.check_attack_btn()
 end
+
+-->8
+-- enemy tab
+
+-- enemy default values
+enemy={
+	hitpoints=3,
+	x=64,
+	y=64,
+	w=8,
+	h=8,
+	triggerbox={x=-2,y=-2,w=12,h=12}, -- these are relative values
+	speed=1,
+	sprites={
+		idle={102,103},
+		attack={102,103}
+	},
+	anim=nil,
+}
+
+function enemy:new(o)
+	o = o or {}
+	setmetatable(o, self)
+	self.__index = self
+	o.anim = myannimator:new()
+	o.anim:setsprite(o.sprites.idle, 30)
+
+	-- random placement, inside room
+	-- should be replaced with a function that considers solids
+	o.x = (flr(rnd(112))+8)
+	o.y = (flr(rnd(112))+8)
+	return o
+end
+
+function enemy:update()
+
+end
+
+function enemy:draw()
+	self.anim:update()
+	spr(self.anim:getsprite(), self.x, self.y)
+end
 -->8
 -- utils
 
@@ -423,6 +491,14 @@ function myannimator:update()
 	self.frames = (self.frames+1) % self.everyxframe
 end
 
+function add_moving_solid(obj)
+	add(moving_solids, obj)
+end
+
+function add_moving_trigger(obj)
+	add(moving_trigger, obj)
+end
+
 function add_solid(obj)
 	add(solids, obj)
 end
@@ -442,6 +518,11 @@ end
 
 function is_colliding(obj)
 	for s in all(solids) do
+		if collide({s, obj}) and s != obj then
+			return true
+		end
+	end
+	for s in all(moving_solids) do 
 		if collide({s, obj}) and s != obj then
 			return true
 		end
@@ -497,7 +578,13 @@ default_room={
 	floor={}
 }
 
-function generate_room(room_set, door_enter_pos, door_enter_id)
+grassy_room={
+	wall={1,2},
+	door={4},
+	floor={10}
+}
+
+function generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
 	printh("room generation: start")
 	if door_enter_id != nil then
 		printh("room generateion: door_enter_id: "..door_enter_id)
@@ -513,6 +600,9 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 		floors={
 			--{x=0,y=0,w=8,h=8,spritenr=98},
 		},
+		enemies={
+			-- enemy objects, see enemy tab
+		},
 	}
 	-- random integer between 2 and 4 (2,3,4)
 	door_amount = flr(rnd(3)) + 2
@@ -525,6 +615,11 @@ function generate_room(room_set, door_enter_pos, door_enter_id)
 	else
 		printh("room generation: inital room")
 		doors = get_doors(door_amount, room_set.door[1])
+	end
+
+	if difficulty != nil then
+		printh("generate enemies for difficulty: "..difficulty)
+		add(room.enemies, enemy:new())
 	end
 
 	printh("room generation: doors created")
@@ -595,6 +690,8 @@ function draw_room(room)
 			print(d.next_room_id, d.x+1, d.y+2, 2)
 		end
 	end)
+	foreach(room.floors, draw_tile)
+	foreach(room.enemies, function(e) e:draw() end)
 end
 
 function draw_tile(tile)
