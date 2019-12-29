@@ -57,7 +57,7 @@ __lua__
 -- (not on gruber level, but useful)
 -------------------------------
 function _init()
-	game_manager.init()
+	game_manager.init()	
 end
 
 function _update60()
@@ -133,10 +133,13 @@ function game_manager.draw()
 		for k,v in pairs(game_manager.rooms) do
 			room_cnt+=1
 		end
-		print("roomnr: "..game_manager.current_room_id, 15, 15)
-		print("rooms generated: "..room_cnt, 15,22)
-		print("solids amount: "..#solids+#moving_solids, 15,29)
-		print("trigger amount: "..#trigger+#moving_trigger, 15,36)
+		print("mem: "..flr(stat(0)).."KiB".." fps: "..stat(7), 15, 15)
+		print("t-cpu: "..(flr(stat(1)*100)/100).." s-cpu: "..(flr(stat(2)*100)/100), 15, 21)
+		print("roomnr: "..game_manager.current_room_id, 15, 27)
+		print("rooms generated: "..room_cnt, 15, 33)
+		print("solids amount: "..#solids+#moving_solids, 15, 39)
+		print("trigger amount: "..#trigger+#moving_trigger, 15, 45)
+		print("x: "..char.x.." y: "..char.y, 15, 51)
 	end
 end
 
@@ -200,7 +203,8 @@ char={
 	-- (init function) look_direction=utils.dir_r, -- only left or right (used for mirroring of sprites)
 	anim=nil,
 	state=0,
-	state_start_time=0
+	state_start_time=0,
+	attackbox=nil
 }
 
 char_animation={
@@ -211,7 +215,7 @@ char_animation={
 
 char_anim_state={
 	idle=0,
-	attack=1
+	melee_attack=1
 }
 
 function char.init()
@@ -224,11 +228,14 @@ end
 
 function char.draw()
 	spr(char.anim:getsprite(), char.x, char.y,1, 1, char.look_direction==utils.dir_l)
-	if char.state == char_anim_state.attack then
+	if char.state == char_anim_state.melee_attack then
 		char.draw_attack()
 	end
 	if debug then
 		rect(char.x, char.y, char.x+char.w, char.y+char.h, 4)
+		if char.attackbox != nil then
+			rect(char.x+char.attackbox.x, char.y+char.attackbox.y,char.x+char.attackbox.x+char.attackbox.w,  char.y+char.attackbox.y+char.attackbox.h, 2)
+		end
 	end
 	if is_colliding(char) then
 		print("colliding",0,0,7)
@@ -300,7 +307,7 @@ end
 function char.check_attack_btn()
 	if btnp(5) and not btnp(6) then
 		char.anim:setsprite(char_animation.a_attack, 7, true)
-		char.state = char_anim_state.attack
+		char.state = char_anim_state.melee_attack
 		char.state_start_time = utils.mstime
 	end
 end
@@ -309,18 +316,62 @@ end
 function char.update()
 	if char.state == char_anim_state.idle then
 		char.idle()
-	elseif char.state == char_anim_state.attack then
-		char.attack()
+	elseif char.state == char_anim_state.melee_attack then
+		char.update_melee_attack()
 	end
 
 	char.anim:update()
 end
 
-function char.attack() 
+function char.get_melee_hitzone() 
+	local multi = 1
+	local w = 7
+	local h = 6
+	local offset = 8
+	local flip = char.look_direction == utils.dir_l
+	if flip then
+		multi = -1
+		offset = w
+	end
+	local y = 3
+	local x = offset * multi
+	-- printh("attackbox: {x="..x..", y="..y..", w="..w..", h="..h.."}")
+	local triggerbox={x=x, y=y, w=w, h=h}
+	local attackbox={x=x+char.x, y=y+char.y, w=w+char.w, h=h+char.h, triggerbox=triggerbox}
+	return attackbox
+end
+
+function char.check_target_hit()
+	if char.attackbox == nil then
+		return
+	end
+	foreach(moving_trigger, function(t)
+		d=t
+		printh("{x="..d.x..", y="..d.y..", w="..d.w..", h="..d.h.."}")
+		printh("triggerbox: {x="..d.triggerbox.x..", y="..d.triggerbox.y..", w="..d.triggerbox.w..", h="..d.triggerbox.h.."}")
+
+	end)
+	local obj = is_triggering(char.attackbox, false)
+	
+	if obj != nil then
+		printh("attack: "..obj.trigger_type)
+	else
+		--printh("attack: nothing")
+	end
+end
+
+
+
+function char.update_melee_attack() 
 	local attack_length = 680
 
-
-
+	
+	if char.anim.i==4 or char.anim.i==5 then
+		char.attackbox = char.get_melee_hitzone()
+		char.check_target_hit()
+	else
+		char.attackbox = nil
+	end
 
 	if utils.mstime > attack_length + char.state_start_time then
 		char.state = char_anim_state.idle
@@ -330,32 +381,49 @@ end
 function char.idle()
 	char.anim:setsprite(char_animation.a_idle,10)
 	char_copy = copy(char)
+	x_dir = nil
+	y_dir = nil
 	local speed = char.speed
+
 	if btn(⬆️) then
-		char_copy.y -= speed
-		char_copy.anim:setsprite(char_animation.a_run)
-		char_copy.direction=utils.dir_u
-		speed = sqrt(speed*speed/2)
+		y_dir = utils.dir_u
 	elseif btn(⬇️) then
-		char_copy.y += speed
-		char_copy.anim:setsprite(char_animation.a_run)
-		char_copy.direction=utils.dir_d
-		speed = sqrt(speed*speed/2)
+		y_dir = utils.dir_d
 	end
 	if btn(➡️) then
+		x_dir = utils.dir_r
+	elseif btn(⬅️) then
+		x_dir = utils.dir_l
+	end
+
+
+	if not x_dir==nil and not y_dir==nil then
+		speed = sqrt(speed*speed/2)
+	end
+
+	if not x_dir == nil and not y_dir == nil then 
+		char_copy.direction = utils.combine_dirs(y_dir, y_dir)
+	end
+
+	if y_dir == utils.dir_u then
+		char_copy.y -= speed
+		char_copy.anim:setsprite(char_animation.a_run)
+	elseif  y_dir == utils.dir_d then
+		char_copy.y += speed
+		char_copy.anim:setsprite(char_animation.a_run)
+	end
+	if x_dir == utils.dir_r then
 		char_copy.x += speed
 		char_copy.anim:setsprite(char_animation.a_run)
-		char_copy.direction=utils.dir_r
 		char_copy.look_direction=utils.dir_r
-	elseif btn(⬅️) then
-	char_copy.x -= speed
+	elseif x_dir == utils.dir_l then
+		char_copy.x -= speed
 		char_copy.anim:setsprite(char_animation.a_run)
-		char_copy.direction=utils.dir_l
 		char_copy.look_direction=utils.dir_l
 	end
 
 	if not is_colliding(char_copy) then
-	char = char_copy
+		char = char_copy
 	end
 
 	t = is_triggering(char)
@@ -391,11 +459,13 @@ function enemy:new(o)
 	self.__index = self
 	o.anim = myannimator:new()
 	o.anim:setsprite(o.sprites.idle, 30)
+	o.trigger_type = trigger_type.mob
+	-- o.state =
 
 	-- random placement, inside room
 	-- should be replaced with a function that considers solids
-	o.x = (flr(rnd(112))+8)
-	o.y = (flr(rnd(112))+8)
+	o.x = (flr(rnd(88))+16)
+	o.y = (flr(rnd(88))+16)
 	return o
 end
 
@@ -412,16 +482,21 @@ end
 
 utils={
  mstime=0,
- dir_l=1,
- dir_u=2,
- dir_r=3,
- dir_d=4,
+ dir_l=1, -- left
+ dir_ul=2, -- up left
+ dir_u=3, -- up
+ dir_ur=4, -- up right 
+ dir_r=5, -- right
+ dir_dr=6, -- down right
+ dir_d=7, -- down
+ dir_dl=8, -- down left
 }
 
 trigger_type={
 	door=0,
 	mob=1,
 }
+
 
 function utils.update()
 	utils.mstime=flr(time()*1000)
@@ -434,6 +509,35 @@ myannimator= {
   arr = {},
 }
 
+function utils.combine_dirs(dir_1, dir_2)
+	-- make one direction from two, e.g. dir_u + dir_l = dir_ul
+	-- this only works for dirs that are 90° apart.
+	-- this is based on the numbering of directions:
+	-- left, up, right, down being odd numbers and the directions in between
+	-- are even.
+	if dir_1 == nil and dir_2 == nil then
+		errtxt = "[utils.combine_dirs] cannot combine two nil values"
+		printh(errtxt)
+		stop(errtxt)
+	elseif dir_1 == nil then
+		return dir_2
+	else
+		return dir_1
+	end
+
+	if abs(dir_1 - dir_2) != 2 then
+		errtxt = "you cannot combine those directions: "..dir_1..", "..dir_2
+		printh(errtxt)
+		stop(errtxt)
+	end
+
+	if dir_1 > dir_2 then
+		return dir_1 - 1
+	else 
+		return dir_1 + 1
+	end
+end
+
 function reverse_dir(dir)
 	if dir == utils.dir_l then
 		return utils.dir_r
@@ -443,6 +547,14 @@ function reverse_dir(dir)
 		return utils.dir_d
 	elseif dir == utils.dir_d then
 		return utils.dir_u
+	elseif dir == utils.dir_ul then
+		return utils.dir_dr
+	elseif dir == utils.dir_ur then
+		return utils.dir_dl
+	elseif dir == utils.dir_dl then
+		return utils.dir_ul
+	elseif dir == utils.dir_dr then
+		return utils.dir_ur
 	end
 	--this shuold never happen
 	errtxt="wrong direction used: "..dir
@@ -507,9 +619,14 @@ function add_trigger(obj)
 	add(trigger, obj)
 end
 
-function is_triggering(obj)
+function is_triggering(obj, debug)
 	for t in all(trigger) do
-	 if _trigger({t, obj}) and t != obj then
+	 if _trigger({t, obj}, debug) and t != obj then
+	 	return t
+	 end
+	end
+	for t in all(moving_trigger) do
+	 if _trigger({t, obj}, debug) and t != obj then
 	 	return t
 	 end
 	end
@@ -537,7 +654,7 @@ function collide(pair)
 	return col;
 end
 
-function _trigger(pair)
+function _trigger(pair, debug)
 	o1 = pair[1]
 	o2 = pair[2]
 	x1 = o1.x+o1.triggerbox.x
@@ -549,6 +666,10 @@ function _trigger(pair)
 	h1 = o1.triggerbox.h
 	h2 = o2.triggerbox.h
 	col = x1 < x2 + w2 and x2 < x1 + w1 and y1 < y2 + h2 and y2 < y1 + h1
+	if debug != nil then
+		printh(x1 < x2 + w2 and x2 < x1 + w1 and y1 < y2 + h2 and y2 < y1 + h1)
+		printh(x1.." < "..x2+w2.." and "..x2.." < "..x1+w1.." and "..y1.." < "..y2+h2.." and "..y2.." < "..y1+h1)
+	end
 	return col;
 end
 
