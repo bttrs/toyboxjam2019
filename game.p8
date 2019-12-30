@@ -125,6 +125,8 @@ function title_manager.init()
 end
 
 function title_manager.update()
+	
+
 	if btnp(❎) then
 		game_manager.switch_state(game_states.play)
 	end
@@ -150,7 +152,10 @@ end
 
 function gameover_manager.draw()
 	cls()
-	print("gameover! press ❎ to go back to title screen")
+	print("gameover!", 50,20)
+	print("you cleaned "..play_manager.cleared_rooms.." rooms", 20,50)
+	print("press ❎ to return to title screen rooms", 10,80)
+	
 end
 -->8
 -- play manager tab
@@ -177,6 +182,7 @@ function play_manager.init()
 	--rooms_init()
 	--char.init()
 	play_manager.rooms = {}
+	play_manager.cleared_rooms = 0
 	play_manager.current_room_id = 1
 	play_manager.room_id_seq = 1
 	room = generate_room(default_room)
@@ -244,6 +250,10 @@ function play_manager.mob_triggered(mob)
 	local room = play_manager.rooms[play_manager.current_room_id]
 	del(room.enemies, mob)
 	sfx(2)
+end
+
+function play_manager.room_cleared()
+	play_manager.cleared_rooms+=1
 end
 
 function play_manager.door_triggered(door)
@@ -416,7 +426,7 @@ function roomba:update_idle()
 
 	t = is_triggering(self)
 	if t != nil then
-		if t.trigger_type==trigger_type.door then
+		if t.trigger_type==trigger_type.door and t.unlocked then
 			play_manager.door_triggered(t)
 		elseif t.trigger_type==trigger_type.mob then
 			play_manager.mob_triggered(t)
@@ -741,7 +751,7 @@ function enemy:new(difficulty, o)
 	o.anim = myannimator:new()
 	o.anim:setsprite(o.sprites.idle, 30)
 	o.trigger_type = trigger_type.mob
-	o.next_attack_time = utils.mstime + o.attackspeed
+	o.next_attack_time = utils.mstime + (o.attackspeed / 3)
 
 	local r = flr(rnd(3))
 	if r == 0 then
@@ -767,7 +777,6 @@ end
 
 function enemy:update()
 	if utils.mstime > self.next_attack_time then
-		printh("attack!")
 		self:attack()
 		self.next_attack_time += self.attackspeed
 	end
@@ -1243,6 +1252,7 @@ function generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
 		enemies={
 			-- enemy objects, see enemy tab
 		},
+		cleared=false,
 	}
 	-- random integer between 2 and 4 (2,3,4)
 	door_amount = flr(rnd(3)) + 2
@@ -1334,9 +1344,15 @@ function update_room(room)
 	moving_trigger = {}
 
 	local room = play_manager.rooms[play_manager.current_room_id]
-	foreach(room.enemies, add_moving_solid)
-	foreach(room.enemies, add_moving_trigger)
-	foreach(room.enemies, function(e) e:update() end)
+	if #room.enemies == 0 and room.cleared == false then
+		foreach(room.doors, unlock_door)
+		room.cleared = true
+		play_manager.room_cleared()
+	else
+		foreach(room.enemies, add_moving_solid)
+		foreach(room.enemies, add_moving_trigger)
+		foreach(room.enemies, function(e) e:update() end)
+	end
 end
 
 function draw_room(room)
@@ -1388,8 +1404,13 @@ function get_door(pos, room_id, sprite_nr, sprite_nr_unlocked)
 		x=8*8
 		y=0
 	end
-	unlocked=true
+	unlocked=false
 	return {x=x, y=y, w=w, h=h, dir=dir, spritenr=unlocked and sprite_nr_unlocked or sprite_nr, trigger_type=trigger_type.door,triggerbox={x=-1,y=-1,w=10,h=10}, next_room_id=room_id, unlocked=unlocked}
+end
+
+function unlock_door(door)
+	door.unlocked=true
+	door.spritenr=3
 end
 
 -- get door positions except for entry_door, since this is already a known position
