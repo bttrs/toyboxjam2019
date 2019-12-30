@@ -161,7 +161,7 @@ function game_manager.door_triggered(door)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(get_random_room_set(), rev_dir, game_manager.current_room_, 1)
+		game_manager.rooms[id] = generate_room(default_room, rev_dir, game_manager.current_room_, 1)
 	end
 	game_manager.current_room_id = id
 	load_room(game_manager.rooms[id])
@@ -599,7 +599,7 @@ enemy={
 	y=64,
 	w=8,
 	h=8,
-	triggerbox={x=-1,y=-1,w=10,h=10}, -- these are relative values
+	triggerbox={x=-2,y=-2,w=12,h=12}, -- these are relative values
 	speed=1,
 	sprites={
 		idle={102,103},
@@ -907,57 +907,16 @@ end
 -->8
 -- room tab
 default_room={
-	wall={1,1,1,1,1,1,2},
+	wall={1,2},
 	door={4},
 	floor={}
 }
 
 grassy_room={
-	wall={1,1,1,1,1,2,1,1,1,1,1,1,2},
+	wall={1,2},
 	door={4},
-	floor={10,10,10,10,10,11}
+	floor={10}
 }
-
-dry_room={
-	wall={1,1,1,1,1,2,1,1,1,1,1,1,2},
-	door={4},
-	floor={9, -1, -1}
-}
-
-desert_room={
-	wall={1,1,1,1,1,2,1,1,1,1,1,1,2},
-	door={4},
-	floor={14,14,15}
-}
-
-brick_grassy_room={
-	wall={59,60},
-	door={4},
-	floor={10,10,10,10,10,11}
-}
-
-brick_desert_room={
-	wall={59,60},
-	door={4},
-	floor={14,14,15}
-}
-
-function get_random_room_set()
-	local random = flr(rnd(3))
-	if random == 0 then
-		return default_room
-	elseif random == 1 then
-		return grassy_room
-	elseif random == 2 then
-		return dry_room
-	elseif random == 3 then
-		return desert_room
-	elseif random == 4 then
-		return brick_grassy_room
-	elseif random == 4 then
-		return brick_desert_room
-	end
-end
 
 function generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
 	printh("room generation: start")
@@ -1017,32 +976,24 @@ function generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
 		return r
 	end
 
+	printh(#doors)
 	for x=0,15,1 do
 	 for y=0,15,1 do
 				if x==0 or x==15 or y==0 or y==15 then
-					local random = flr(rnd(#room_set.wall))+1
 					if is_door_fn(x, y) then
 						-- don't overdraw
 					elseif y==0 and x==8 then
-						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[random]})
+						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					elseif y==15 and x==8 then
-						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[random]})
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==8 and x==0 then
-						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[random]})
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==8 and x==15 then
-						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[random]})
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					elseif y==0 and x > 0 and x < 15 then
-						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[random]})
+						add(room.walls, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.wall[1]})
 					else
-						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[random]})
-					end
-				else
-					if room_set.floor[1] != nil then
-						local random = flr(rnd(#room_set.floor))+1
-						local sprite=room_set.floor[random]
-						if sprite >= 0 then
-							add(room.floors, {x=x*8, y=y*8, w=8, h=2, spritenr=room_set.floor[random]})
-						end
+						add(room.walls, {x=x*8, y=y*8, w=8, h=8, spritenr=room_set.wall[1]})
 					end
 				end
 		end
