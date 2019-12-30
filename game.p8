@@ -69,44 +69,136 @@ function _draw()
 end
 
 -->8
--- game manager tab
-game_manager={}
+-- game_manager tab
+
+
+game_manager={
+	state=0,
+}
+
+game_states={
+	title=0,
+	play=1,
+	gameover=2,
+}
 
 function game_manager.init()
+	title_manager.init()
+end
+
+function game_manager.update()
+	if game_manager.state == game_states.title then
+		title_manager.update()
+	elseif game_manager.state == game_states.play then
+		play_manager.update()
+	elseif game_manager.state == game_states.gameover then
+		gameover_manager.update()
+	end
+end
+
+function game_manager.draw()
+	if game_manager.state == game_states.title then
+		title_manager.draw()
+	elseif game_manager.state == game_states.play then
+		play_manager.draw()
+	elseif game_manager.state == game_states.gameover then
+		gameover_manager.draw()
+	end
+end
+
+function game_manager.switch_state(state)
+	game_manager.state = state
+	if game_manager.state == game_states.title then
+		title_manager.init()
+	elseif game_manager.state == game_states.play then
+		play_manager.init()
+	elseif game_manager.state == game_states.gameover then
+		gameover_manager.init()
+	end
+end
+
+title_manager={}
+
+function title_manager.init()
+	printh("init title screen")
+	music(6)
+end
+
+function title_manager.update()
+	if btnp(❎) then
+		game_manager.switch_state(game_states.play)
+	end
+end
+
+function title_manager.draw()
+	cls()
+	print("title! press ❎ to start")
+end
+
+gameover_manager={}
+
+function gameover_manager.init()
+	printh("init gameover screen")
+	music(23)
+end
+
+function gameover_manager.update()
+	if btnp(❎) then
+		game_manager.switch_state(game_states.title)
+	end
+end
+
+function gameover_manager.draw()
+	cls()
+	print("gameover! press ❎ to go back to title screen")
+end
+-->8
+-- play manager tab
+play_manager={}
+
+music_manager={
+	current_song=-1
+}
+
+function music_manager.music(n)
+	if music_manager.current_song != n then
+		music_manager.current_song = n
+		music(n)
+	end
+end
+
+function play_manager.init()
 	debug=false
 	solids = {}
 	moving_solids = {}
 	trigger = {} -- {{x,y,w,h,type}}
 	moving_trigger = {}
+	projectiles={}
 	--rooms_init()
 	--char.init()
-	game_manager.rooms = {}
-	game_manager.current_room_id = 1
-	game_manager.room_id_seq = 1
+	play_manager.rooms = {}
+	play_manager.current_room_id = 1
+	play_manager.room_id_seq = 1
 	room = generate_room(default_room)
-	game_manager.rooms[1] = room
-	game_manager.roomba = roomba:new()
+	play_manager.rooms[1] = room
+	play_manager.roomba = roomba:new()
 	load_room(room)
+	music_manager.music(0)
+
+	--p = projectile:new(30,30,utils.dir_d)
 end
 
-function game_manager.update()
-	game_manager.update_moving_solids_and_triggers()
-
+function play_manager.update()
 	utils.update()
-	--char.update()
-	game_manager.roomba:update()
+
+	update_room(play_manager.rooms[play_manager.current_room_id])
+
+	play_manager.roomba:update()
+	foreach(projectiles, function(p) p:update() end)
 	-- for debug
 	debug_btnp()
 end
 
-function game_manager.update_moving_solids_and_triggers()
-	moving_solids = {}
-	moving_trigger = {}
-
-	local room = game_manager.rooms[game_manager.current_room_id]
-	foreach(room.enemies, add_moving_solid)
-	foreach(room.enemies, add_moving_trigger)
-end
 
 function debug_btnp()
 	if btnp(5) and btnp(4) then
@@ -119,11 +211,13 @@ function debug_btnp()
 	end
 end
 
-function game_manager.draw()
+function play_manager.draw()
 	cls ()
-	draw_room(game_manager.rooms[game_manager.current_room_id])
-	--char.draw()
-	game_manager.roomba:draw()
+	draw_room(play_manager.rooms[play_manager.current_room_id])
+	
+	foreach(projectiles, function(p) p:draw() end)
+
+	play_manager.roomba:draw()
 	if debug then
 		foreach(solids, debug_draw_solids)
 		foreach(trigger, debug_draw_trigger)
@@ -132,56 +226,59 @@ function game_manager.draw()
 
 		--count generated rooms
 		room_cnt = 0
-		for k,v in pairs(game_manager.rooms) do
+		for k,v in pairs(play_manager.rooms) do
 			room_cnt+=1
 		end
 		print("mstime: "..utils.mstime, 15,9)
 		print("mem: "..flr(stat(0)).."KiB".." fps: "..stat(7), 15, 15)
 		print("t-cpu: "..(flr(stat(1)*100)/100).." s-cpu: "..(flr(stat(2)*100)/100), 15, 21)
-		print("roomnr: "..game_manager.current_room_id, 15, 27)
+		print("roomnr: "..play_manager.current_room_id, 15, 27)
 		print("rooms generated: "..room_cnt, 15, 33)
 		print("solids amount: "..#solids+#moving_solids, 15, 39)
 		print("trigger amount: "..#trigger+#moving_trigger, 15, 45)
-		print("x: "..char.x.." y: "..char.y, 15, 51)
+		print("x: "..play_manager.roomba.x.." y: "..play_manager.roomba.y, 15, 51)
 	end
 end
 
-function game_manager.mob_triggered(mob)
-	local room = game_manager.rooms[game_manager.current_room_id]
+function play_manager.mob_triggered(mob)
+	local room = play_manager.rooms[play_manager.current_room_id]
 	del(room.enemies, mob)
+	sfx(2)
 end
 
-function game_manager.door_triggered(door)
+function play_manager.door_triggered(door)
 	solids = {}
 	trigger = {}
+	projectiles = {}
 
 	id = door.next_room_id
-	printh("triggered room: "..id..", current room: "..game_manager.current_room_id)
+	printh("triggered room: "..id..", current room: "..play_manager.current_room_id)
 	rev_dir =  reverse_dir(door.dir)
-	if game_manager.rooms[id] == nil then
+	if play_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(get_random_room_set(), rev_dir, game_manager.current_room_, 1)
+		play_manager.rooms[id] = generate_room(get_random_room_set(), rev_dir, play_manager.current_room_id, 1)
 	end
-	game_manager.current_room_id = id
-	load_room(game_manager.rooms[id])
-	game_manager.roomba.x = 64
-	game_manager.roomba.y = 64
+	play_manager.current_room_id = id
+	load_room(play_manager.rooms[id])
+	play_manager.roomba.x = 64
+	play_manager.roomba.y = 64
 	if rev_dir == utils.dir_u then
-		game_manager.roomba.y = 108
+		play_manager.roomba.y = 108
 	elseif rev_dir == utils.dir_d then
-		game_manager.roomba.y = 20
+		play_manager.roomba.y = 20
 	elseif rev_dir == utils.dir_l then
-		game_manager.roomba.x = 20
+		play_manager.roomba.x = 20
 	elseif rev_dir == utils.dir_r then
-		game_manager.roomba.x = 108
+		play_manager.roomba.x = 108
 	end
+	sfx(5)
 end
 
-function game_manager.next_room_nr()
-	game_manager.room_id_seq += 1
-	printh("next room id: "..game_manager.room_id_seq)
-	return game_manager.room_id_seq
+function play_manager.next_room_nr()
+	play_manager.room_id_seq += 1
+	printh("next room id: "..play_manager.room_id_seq)
+	return play_manager.room_id_seq
 end
 
 function debug_draw_solids(obj)
@@ -220,6 +317,7 @@ roomba={
 		hull=84,
 		vacuum=0
 	},
+	hitpoints=5,
 	vacuum_rotation=0,
 	vacuum_rotation_speed=.1, -- every x seconds a new rotation update
 	vacuum_rotation_amount=10, -- degrees to turn
@@ -242,6 +340,7 @@ function roomba:new(o)
 	o.anim:setsprite(o.sprites.idle, 30)
 	o.trigger_type = trigger_type.mob
 	o.vacuum_next_rotation_time += o.vacuum_rotation_speed
+	o.trigger_type=trigger_type.roomba
 	o.direction=utils.dir_d
 	-- o.state =
 
@@ -253,6 +352,7 @@ function roomba:new(o)
 end
 
 function roomba:update()
+	add(moving_solids, self)
 	if utils.mstime > self.vacuum_next_rotation_time then
 		self.vacuum_rotation += self.vacuum_rotation_amount
 		self.vacuum_rotation = self.vacuum_rotation % 360
@@ -306,7 +406,8 @@ function roomba:update_idle()
 		char_copy.look_direction=utils.dir_l
 	end
 
-	if not is_colliding(char_copy) then
+	c = is_colliding(char_copy)
+	if c == nil or c.trigger_type == trigger_type.roomba then
 		self.x = char_copy.x
 		self.y = char_copy.y
 		self.direction=char_copy.direction
@@ -316,9 +417,9 @@ function roomba:update_idle()
 	t = is_triggering(self)
 	if t != nil then
 		if t.trigger_type==trigger_type.door then
-			game_manager.door_triggered(t)
+			play_manager.door_triggered(t)
 		elseif t.trigger_type==trigger_type.mob then
-			game_manager.mob_triggered(t)
+			play_manager.mob_triggered(t)
 			
 		end
 	end
@@ -331,6 +432,15 @@ function roomba:draw()
 		rect(self.x, self.y, self.x+self.w, self.y+self.h, 4)
 	end
 end
+
+function roomba:hit()
+	self.hitpoints -= 1
+	if self.hitpoints <= 0 then
+		printh("dead")
+		game_manager.switch_state(game_states.gameover)
+	end
+end
+
 
 function direction_to_degrees(direction)
 	-- d	(7) 	= 0
@@ -392,7 +502,7 @@ function char.draw()
 			rect(char.x+char.attackbox.x, char.y+char.attackbox.y,char.x+char.attackbox.x+char.attackbox.w,  char.y+char.attackbox.y+char.attackbox.h, 2)
 		end
 	end
-	if is_colliding(char) then
+	if is_colliding(char) != nil then
 		print("colliding",0,0,7)
 	end
 end
@@ -577,13 +687,13 @@ function char.idle()
 		char_copy.look_direction=utils.dir_l
 	end
 
-	if not is_colliding(char_copy) then
+	if is_colliding(char_copy) == nil then
 		char = char_copy
 	end
 
 	t = is_triggering(char)
 	if t != nil and t.trigger_type==trigger_type.door then
-		game_manager.door_triggered(t)
+		play_manager.door_triggered(t)
 	end
 
 	char.check_attack_btn()
@@ -594,13 +704,15 @@ end
 
 -- enemy default values
 enemy={
-	hitpoints=3,
+	--hitpoints=3,
 	x=64,
 	y=64,
 	w=8,
 	h=8,
 	triggerbox={x=-1,y=-1,w=10,h=10}, -- these are relative values
 	speed=1,
+	attackspeed=1, --attacks every 5 seconds
+	next_attack_time=0,
 	sprites={
 		idle={102,103},
 		attack={102,103}
@@ -615,6 +727,7 @@ function enemy:new(o)
 	o.anim = myannimator:new()
 	o.anim:setsprite(o.sprites.idle, 30)
 	o.trigger_type = trigger_type.mob
+	o.next_attack_time = utils.mstime + o.attackspeed
 	-- o.state =
 
 	-- random placement, inside room
@@ -625,11 +738,72 @@ function enemy:new(o)
 end
 
 function enemy:update()
+	if utils.mstime > self.next_attack_time then
+		printh("attack!")
+		self:attack()
+		self.next_attack_time += self.attackspeed
+	end
+end
 
+function enemy:attack()
+	sfx(0)
+	projectile:new(self.x,self.y,utils.dir_l)
+	projectile:new(self.x,self.y,utils.dir_u)
+	projectile:new(self.x,self.y,utils.dir_r)
+	projectile:new(self.x,self.y,utils.dir_d)
 end
 
 function enemy:draw()
 	self.anim:update()
+	spr(self.anim:getsprite(), self.x, self.y)
+end
+
+projectile={
+	x=64,
+	y=64,
+	w=8,
+	h=8,
+	speed_x=0,
+	speed_y=0,
+	direction=0,
+	triggerbox={x=-1,y=-1,w=10,h=10}, -- these are relative values
+	speed=1,
+	sprites={95,94},
+	anim=nil
+}
+
+function projectile:new(x,y,dir,o)
+	o = o or {}
+	setmetatable(o, self)
+	self.__index = self
+	o.anim = myannimator:new()
+	o.anim:setsprite(o.sprites)
+	o.x=x
+	o.y=y
+	o.direction=dir
+	o.speed_x = utils.dir_to_speed_x(dir, o.speed)
+	o.speed_y = utils.dir_to_speed_y(dir, o.speed)
+	add(projectiles, o)
+	return o
+end
+
+function projectile:update()
+	self.x += self.speed_x
+	self.y += self.speed_y
+	t = is_colliding(self)
+	if t != nil and t.trigger_type != trigger_type.mob then
+		sfx(11)
+		if t.trigger_type == trigger_type.roomba then
+			sfx(14)
+			t:hit()
+		end
+		del(projectiles, self)
+		return
+	end
+	self.anim:update()
+end
+
+function projectile:draw()
 	spr(self.anim:getsprite(), self.x, self.y)
 end
 
@@ -650,6 +824,7 @@ utils={
 trigger_type={
 	door=0,
 	mob=1,
+	roomba=2,
 }
 
 
@@ -663,6 +838,36 @@ myannimator= {
   everyxframe = 10;
   arr = {},
 }
+
+function utils.dir_to_speed_x(dir, groundspeed)
+	groundspeed = groundspeed or 1
+	if dir == utils.dir_l then
+		return groundspeed * -1
+	elseif dir == utils.dir_ul or dir==utils.dir_dl then
+		return sqrt(groundspeed*groundspeed/2) * -1
+	elseif dir == utils.dir_u or dir == utils.dir_d then
+		return 0
+	elseif dir == utils.dir_ur or dir == utils.dir_dr then
+		return sqrt(groundspeed*groundspeed/2)
+	elseif dir == utils.dir_r then
+		return groundspeed
+	end
+end
+
+function utils.dir_to_speed_y(dir, groundspeed)
+	groundspeed = groundspeed or 1
+	if dir == utils.dir_l or dir == utils.dir_r then
+		return 0
+	elseif dir == utils.dir_ul or dir==utils.dir_ur then
+		return sqrt(groundspeed*groundspeed/2) * -1
+	elseif dir == utils.dir_u then
+		return groundspeed * -1
+	elseif dir == utils.dir_dl or dir == utils.dir_dr then
+		return sqrt(groundspeed*groundspeed/2)
+	elseif dir == utils.dir_d then
+		return groundspeed
+	end
+end
 
 function utils.combine_dirs(dir_1, dir_2)
 	-- make one direction from two, e.g. dir_u + dir_l = dir_ul
@@ -760,6 +965,13 @@ function spr_r_vac(s,x,y,a,w,h)
 end
 
 function spr_r(s,x,y,a,w,h)
+	if a == 0 then
+		spr(s,x,y,w,h)
+		return
+	elseif a == 180 then
+		spr(s,x,y,w,h,true,true)
+		return
+	end
 	sw=(w or 1)*8
 	sh=(h or 1)*8
 	sx=(s%8)*8
@@ -849,15 +1061,15 @@ end
 function is_colliding(obj)
 	for s in all(solids) do
 		if collide({s, obj}) and s != obj then
-			return true
+			return s
 		end
 	end
 	for s in all(moving_solids) do 
 		if collide({s, obj}) and s != obj then
-			return true
+			return s
 		end
 	end
-	return false
+	return nil
 end
 
 function collide(pair)
@@ -1060,6 +1272,16 @@ function load_room(room)
 	end)
 end
 
+function update_room(room)
+	moving_solids = {}
+	moving_trigger = {}
+
+	local room = play_manager.rooms[play_manager.current_room_id]
+	foreach(room.enemies, add_moving_solid)
+	foreach(room.enemies, add_moving_trigger)
+	foreach(room.enemies, function(e) e:update() end)
+end
+
 function draw_room(room)
 	foreach(room.walls, draw_tile)
 	foreach(room.doors, function(d)
@@ -1159,7 +1381,7 @@ function get_doors(door_amount, sprite_nr, existing_door)
 		if existing_door != nil and existing_door.door.dir == dir then
 			printh("WARNING: door was created at existing doors place o.O")
 		else
-			add(door_array, get_door(dir, game_manager.next_room_nr(), sprite_nr))
+			add(door_array, get_door(dir, play_manager.next_room_nr(), sprite_nr))
 			printh("get_doors: added new door at "..dir)
 		end
 	end)
