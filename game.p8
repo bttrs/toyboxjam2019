@@ -255,9 +255,9 @@ function play_manager.door_triggered(door)
 	printh("triggered room: "..id..", current room: "..play_manager.current_room_id)
 	rev_dir =  reverse_dir(door.dir)
 	if play_manager.rooms[id] == nil then
-		--  generate_room(room_set, door_enter_pos, door_enter_id)
-		-- TODO: get door position and reverse it
-		play_manager.rooms[id] = generate_room(get_random_room_set(), rev_dir, play_manager.current_room_id, 1)
+		--  generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
+		-- difficulty is the next room id since this is incrementing
+		play_manager.rooms[id] = generate_room(get_random_room_set(), rev_dir, play_manager.current_room_id, id)
 	end
 	play_manager.current_room_id = id
 	load_room(play_manager.rooms[id])
@@ -722,8 +722,10 @@ enemy={
 	h=8,
 	triggerbox={x=-1,y=-1,w=10,h=10}, -- these are relative values
 	speed=1,
-	attackspeed=1, --attacks every 5 seconds
+	attackspeed=2, --attacks every x seconds
 	next_attack_time=0,
+	diagonal_attack=0,
+	with_diag=false,
 	sprites={
 		idle={102,103},
 		attack={102,103}
@@ -731,14 +733,29 @@ enemy={
 	anim=nil,
 }
 
-function enemy:new(o)
+function enemy:new(difficulty, o)
 	o = o or {}
 	setmetatable(o, self)
 	self.__index = self
+	o.difficulty = difficulty or 1
 	o.anim = myannimator:new()
 	o.anim:setsprite(o.sprites.idle, 30)
 	o.trigger_type = trigger_type.mob
 	o.next_attack_time = utils.mstime + o.attackspeed
+
+	local r = flr(rnd(3))
+	if r == 0 then
+		o.with_diag = true
+	end
+
+	if o.difficulty >= 5 then
+		o.attackspeed = 1.5
+	elseif o.difficulty >= 20 then
+		o.attackspeed = 1
+	end 
+	if o.difficulty <= 10 then
+		o.diagonal_attack=flr(rnd(2))
+	end
 	-- o.state =
 
 	-- random placement, inside room
@@ -758,10 +775,35 @@ end
 
 function enemy:attack()
 	sfx(0)
-	projectile:new(self.x,self.y,utils.dir_l)
-	projectile:new(self.x,self.y,utils.dir_u)
-	projectile:new(self.x,self.y,utils.dir_r)
-	projectile:new(self.x,self.y,utils.dir_d)
+	if self.difficulty <= 15 then
+		if self.diagonal_attack==1 then
+			projectile:new(self.x,self.y,utils.dir_ul)
+			projectile:new(self.x,self.y,utils.dir_ur)
+			projectile:new(self.x,self.y,utils.dir_dl)
+			projectile:new(self.x,self.y,utils.dir_dr)
+		else
+			projectile:new(self.x,self.y,utils.dir_l)
+			projectile:new(self.x,self.y,utils.dir_u)
+			projectile:new(self.x,self.y,utils.dir_r)
+			projectile:new(self.x,self.y,utils.dir_d)
+		end
+	else
+		if self.diagonal_attack==1 then
+			projectile:new(self.x,self.y,utils.dir_ul)
+			projectile:new(self.x,self.y,utils.dir_ur)
+			projectile:new(self.x,self.y,utils.dir_dl)
+			projectile:new(self.x,self.y,utils.dir_dr)
+		else
+			projectile:new(self.x,self.y,utils.dir_l)
+			projectile:new(self.x,self.y,utils.dir_u)
+			projectile:new(self.x,self.y,utils.dir_r)
+			projectile:new(self.x,self.y,utils.dir_d)
+		end
+		if self.with_diag then
+			self.diagonal_attack += 1
+			self.diagonal_attack = self.diagonal_attack%2
+		end
+	end
 end
 
 function enemy:draw()
@@ -1166,7 +1208,7 @@ brick_desert_room={
 }
 
 function get_random_room_set()
-	local random = flr(rnd(3))
+	local random = flr(rnd(5))
 	if random == 0 then
 		return default_room
 	elseif random == 1 then
@@ -1177,7 +1219,7 @@ function get_random_room_set()
 		return desert_room
 	elseif random == 4 then
 		return brick_grassy_room
-	elseif random == 4 then
+	elseif random == 5 then
 		return brick_desert_room
 	end
 end
@@ -1217,7 +1259,11 @@ function generate_room(room_set, door_enter_pos, door_enter_id, difficulty)
 
 	if difficulty != nil then
 		printh("generate enemies for difficulty: "..difficulty)
-		add(room.enemies, enemy:new())
+		local enemy_amount = flr(difficulty / 10)+1
+		printh("enemy amount: "..enemy_amount)
+		for i=1,enemy_amount do
+			add(room.enemies, enemy:new(difficulty))
+		end
 	end
 
 	printh("room generation: doors created")
