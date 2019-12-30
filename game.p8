@@ -79,12 +79,13 @@ function game_manager.init()
 	trigger = {} -- {{x,y,w,h,type}}
 	moving_trigger = {}
 	--rooms_init()
-	char.init()
+	--char.init()
 	game_manager.rooms = {}
 	game_manager.current_room_id = 1
 	game_manager.room_id_seq = 1
 	room = generate_room(default_room)
 	game_manager.rooms[1] = room
+	game_manager.roomba = roomba:new()
 	load_room(room)
 end
 
@@ -92,8 +93,8 @@ function game_manager.update()
 	game_manager.update_moving_solids_and_triggers()
 
 	utils.update()
-	char.update()
-
+	--char.update()
+	game_manager.roomba:update()
 	-- for debug
 	debug_btnp()
 end
@@ -121,7 +122,8 @@ end
 function game_manager.draw()
 	cls ()
 	draw_room(game_manager.rooms[game_manager.current_room_id])
-	char.draw()
+	--char.draw()
+	game_manager.roomba:draw()
 	if debug then
 		foreach(solids, debug_draw_solids)
 		foreach(trigger, debug_draw_trigger)
@@ -133,6 +135,7 @@ function game_manager.draw()
 		for k,v in pairs(game_manager.rooms) do
 			room_cnt+=1
 		end
+		print("mstime: "..utils.mstime, 15,9)
 		print("mem: "..flr(stat(0)).."KiB".." fps: "..stat(7), 15, 15)
 		print("t-cpu: "..(flr(stat(1)*100)/100).." s-cpu: "..(flr(stat(2)*100)/100), 15, 21)
 		print("roomnr: "..game_manager.current_room_id, 15, 27)
@@ -149,15 +152,25 @@ function game_manager.door_triggered(door)
 
 	id = door.next_room_id
 	printh("triggered room: "..id..", current room: "..game_manager.current_room_id)
+	rev_dir =  reverse_dir(door.dir)
 	if game_manager.rooms[id] == nil then
 		--  generate_room(room_set, door_enter_pos, door_enter_id)
 		-- TODO: get door position and reverse it
-		game_manager.rooms[id] = generate_room(default_room, reverse_dir(door.dir), game_manager.current_room_, 1)
+		game_manager.rooms[id] = generate_room(default_room, rev_dir, game_manager.current_room_, 1)
 	end
 	game_manager.current_room_id = id
 	load_room(game_manager.rooms[id])
-	char.x = 64
-	char.y = 64
+	game_manager.roomba.x = 64
+	game_manager.roomba.y = 64
+	if rev_dir == utils.dir_u then
+		game_manager.roomba.y = 108
+	elseif rev_dir == utils.dir_d then
+		game_manager.roomba.y = 20
+	elseif rev_dir == utils.dir_l then
+		game_manager.roomba.x = 20
+	elseif rev_dir == utils.dir_r then
+		game_manager.roomba.x = 108
+	end
 end
 
 function game_manager.next_room_nr()
@@ -188,6 +201,138 @@ function debug_draw_trigger(obj)
 	w = x + obj.triggerbox.w-1
 	h = y + obj.triggerbox.h-1
 	rect(x, y, w, h, 3)
+end
+
+-->8
+-- roomba!
+roomba={
+	x=64,
+	y=64,
+	w=8,
+	h=8,
+	triggerbox={x=0,y=0,w=8,h=8}, -- these are relative values
+	sprites={
+		hull=84,
+		vacuum=0
+	},
+	vacuum_rotation=0,
+	vacuum_rotation_speed=.1, -- every x seconds a new rotation update
+	vacuum_rotation_amount=10, -- degrees to turn
+	vacuum_next_rotation_time=0,
+	hull_rotation=0,
+	speed=1,
+	-- (init function) direction=utils.dir_r, -- left, up, right or down
+	-- (init function) look_direction=utils.dir_r, -- only left or right (used for mirroring of sprites)
+	anim=nil,
+	state=0,
+	state_start_time=0,
+	attackbox=nil
+}
+
+function roomba:new(o)
+	o = o or {}
+	setmetatable(o, self)
+	self.__index = self
+	o.anim = myannimator:new()
+	o.anim:setsprite(o.sprites.idle, 30)
+	o.trigger_type = trigger_type.mob
+	o.vacuum_next_rotation_time += o.vacuum_rotation_speed
+	o.direction=utils.dir_d
+	-- o.state =
+
+	-- random placement, inside room
+	-- should be replaced with a function that considers solids
+	o.x = (flr(rnd(88))+16)
+	o.y = (flr(rnd(88))+16)
+	return o
+end
+
+function roomba:update()
+	if utils.mstime > self.vacuum_next_rotation_time then
+		self.vacuum_rotation += self.vacuum_rotation_amount
+		self.vacuum_rotation = self.vacuum_rotation % 360
+	end
+
+	self:update_idle()
+end
+
+function roomba:update_idle()
+	local char_copy = {}--copy(self)
+	char_copy.x = self.x
+	char_copy.y = self.y
+	char_copy.w = self.w
+	char_copy.h = self.h
+	char_copy.direction = self.direction
+	char_copy.triggerbox = self.triggerbox
+	x_dir = nil
+	y_dir = nil
+	local speed = self.speed
+
+	if btn(⬆️) then
+		y_dir = utils.dir_u
+	elseif btn(⬇️) then
+		y_dir = utils.dir_d
+	end
+	if btn(➡️) then
+		x_dir = utils.dir_r
+	elseif btn(⬅️) then
+		x_dir = utils.dir_l
+	end
+
+
+	if x_dir!=nil and y_dir!=nil then
+		speed = sqrt(speed*speed/2)
+	end
+
+	if not (x_dir == nil and y_dir == nil) then 
+		char_copy.direction = utils.combine_dirs(x_dir, y_dir)
+	end
+
+	if y_dir == utils.dir_u then
+		char_copy.y -= speed
+	elseif  y_dir == utils.dir_d then
+		char_copy.y += speed
+	end
+	if x_dir == utils.dir_r then
+		char_copy.x += speed
+		char_copy.look_direction=utils.dir_r
+	elseif x_dir == utils.dir_l then
+		char_copy.x -= speed
+		char_copy.look_direction=utils.dir_l
+	end
+
+	if not is_colliding(char_copy) then
+		self.x = char_copy.x
+		self.y = char_copy.y
+		self.direction=char_copy.direction
+		self.hull_rotation=direction_to_degrees(self.direction)
+	end
+
+	t = is_triggering(self)
+	if t != nil and t.trigger_type==trigger_type.door then
+		game_manager.door_triggered(t)
+	end
+end
+
+function roomba:draw()
+	spr_r_vac(self.sprites.vacuum, self.x, self.y, self.vacuum_rotation, 1,1)
+	spr_r(self.sprites.hull, self.x, self.y, self.hull_rotation, 1,1)
+	if debug then
+		rect(self.x, self.y, self.x+self.w, self.y+self.h, 4)
+	end
+end
+
+function direction_to_degrees(direction)
+	-- d	(7) 	= 0
+	-- dl	(8) 	= 45
+	-- l	(1) 	= 90
+	-- ul	(2)	= 135
+	-- u	(3) 	= 180
+	-- etc
+	d = direction - 7
+	d = d % 8
+
+	return d*45
 end
 
 -->8
@@ -363,7 +508,7 @@ end
 
 
 function char.update_melee_attack() 
-	local attack_length = 680
+	local attack_length = .680
 
 	
 	if char.anim.i==4 or char.anim.i==5 then
@@ -477,11 +622,11 @@ function enemy:draw()
 	self.anim:update()
 	spr(self.anim:getsprite(), self.x, self.y)
 end
+
 -->8
 -- utils
-
 utils={
- mstime=0,
+ mstime=0, --yes i know this was a stupid mistake and the term is also wrong now
  dir_l=1, -- left
  dir_ul=2, -- up left
  dir_u=3, -- up
@@ -499,7 +644,7 @@ trigger_type={
 
 
 function utils.update()
-	utils.mstime=flr(time()*1000)
+	utils.mstime=time()
 end
 
 myannimator= {
@@ -521,20 +666,26 @@ function utils.combine_dirs(dir_1, dir_2)
 		stop(errtxt)
 	elseif dir_1 == nil then
 		return dir_2
-	else
+	elseif dir_2 == nil then
 		return dir_1
 	end
 
-	if abs(dir_1 - dir_2) != 2 then
+	if abs(dir_1 - dir_2) != 2 and not (dir_1 == 1 and dir_2 == 7) and not (dir_1 == 7 and dir_2 == 1) then
 		errtxt = "you cannot combine those directions: "..dir_1..", "..dir_2
 		printh(errtxt)
 		stop(errtxt)
 	end
 
-	if dir_1 > dir_2 then
-		return dir_1 - 1
-	else 
-		return dir_1 + 1
+	if not (dir_1 == 1 and dir_2 == 7) and not (dir_1 == 7 and dir_2 == 1) then
+		if dir_1 > dir_2 then
+			return dir_2 + 1
+		else 
+			return dir_2 - 1
+		end
+	elseif dir_1 == 1 then
+		return dir_2+1
+	else
+		return dir_1+1
 	end
 end
 
@@ -570,7 +721,59 @@ function del_map(t, i)
 		t[n]=nil
 	end
 end
+ 
+-- prints sprite with rotation
+function spr_r_vac(s,x,y,a,w,h)
+	sw=(w or 1)*8
+	sh=(h or 1)*8
+	sx=(s%8)*8
+	sy=flr(s/16)*8
+	x0=flr(0.5*sw)
+	y0=flr(0.5*sh)
+	a=a/360
+	sa=sin(a)
+	ca=cos(a)
+	for ix=0,sw-1 do
+		for iy=0,sh-1 do
+		dx=ix-x0
+		dy=iy-y0
+		xx=flr(dx*ca-dy*sa+x0)
+		yy=flr(dx*sa+dy*ca+y0)
+		if (xx>=2 and xx<sw-2 and yy>=2 and yy<=sh-2) then
+		c = sget(sx+xx,sy+yy)
+		if c!=1 and c!=2 then
+				pset(x+ix,y+iy,c)
+		end
+		end
+		end
+	end
+end
 
+function spr_r(s,x,y,a,w,h)
+	sw=(w or 1)*8
+	sh=(h or 1)*8
+	sx=(s%8)*8
+	sy=flr(s/16)*8
+	x0=flr(0.5*sw)
+	y0=flr(0.5*sh)
+	a=a/360
+	sa=sin(a)
+	ca=cos(a)
+	for ix=0,sw-1 do
+		for iy=0,sh-1 do
+		dx=ix-x0
+		dy=iy-y0
+		xx=flr(dx*ca-dy*sa+x0)
+		yy=flr(dx*sa+dy*ca+y0)
+		if (xx>=0 and xx<sw and yy>=0 and yy<=sh) then
+			c = sget(sx+xx,sy+yy)
+			if c!=0 and c!=2 then
+				pset(x+ix,y+iy,c)
+			end
+		end
+		end
+	end
+end
 
 function myannimator:new(o)
   o = o or {}
