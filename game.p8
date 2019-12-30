@@ -431,6 +431,17 @@ function roomba:draw()
 	if debug then
 		rect(self.x, self.y, self.x+self.w, self.y+self.h, 4)
 	end
+	self:draw_hitpoints()
+end
+
+function roomba:draw_hitpoints()
+	local x = 1
+	local y = 0
+	local sprite = 64
+	for i=1,self.hitpoints do
+		spr(sprite,x,y)
+		x += 10
+	end
 end
 
 function roomba:hit()
