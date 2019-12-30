@@ -146,6 +146,11 @@ function game_manager.draw()
 	end
 end
 
+function game_manager.mob_triggered(mob)
+	local room = game_manager.rooms[game_manager.current_room_id]
+	del(room.enemies, mob)
+end
+
 function game_manager.door_triggered(door)
 	solids = {}
 	trigger = {}
@@ -210,7 +215,7 @@ roomba={
 	y=64,
 	w=8,
 	h=8,
-	triggerbox={x=0,y=0,w=8,h=8}, -- these are relative values
+	triggerbox={x=0,y=0,w=9,h=9}, -- these are relative values
 	sprites={
 		hull=84,
 		vacuum=0
@@ -309,8 +314,13 @@ function roomba:update_idle()
 	end
 
 	t = is_triggering(self)
-	if t != nil and t.trigger_type==trigger_type.door then
-		game_manager.door_triggered(t)
+	if t != nil then
+		if t.trigger_type==trigger_type.door then
+			game_manager.door_triggered(t)
+		elseif t.trigger_type==trigger_type.mob then
+			game_manager.mob_triggered(t)
+			
+		end
 	end
 end
 
